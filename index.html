@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>作品走廊</title>
     <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+        }
+      }
+    </script>
   </head>
   <body>
     <div class="hud">
@@ -13,12 +21,16 @@
         <span class="pulse-dot"></span>
         <span id="count-label">即時更新中</span>
       </div>
-      <div class="hud-hint">↑↓ 方向鍵，或手指滑動前進／後退・點擊作品查看</div>
+      <div class="hud-hint" id="hud-hint">WASD 移動、滑鼠拖曳視角・點擊作品查看</div>
     </div>
 
-    <div class="corridor" id="corridor">
-      <div class="corridor-track" id="corridor-track"></div>
-      <div class="corridor-fog"></div>
+    <canvas id="scene"></canvas>
+
+    <div class="lock-prompt" id="lock-prompt">
+      <div class="lock-prompt-box">
+        <div class="lock-prompt-title">點擊進入導覽模式</div>
+        <div class="lock-prompt-sub">WASD 移動・滑鼠看向兩側・點擊作品查看內容・Esc 離開</div>
+      </div>
     </div>
 
     <div class="empty-state hidden" id="empty-state">
