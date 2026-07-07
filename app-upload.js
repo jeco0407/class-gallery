@@ -1,6 +1,4 @@
-import { db, storage } from "./firebase-config.js";
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { supabase } from "./supabase-config.js";
 
 const form = document.getElementById("upload-form");
 const typeButtons = document.querySelectorAll(".type-toggle button");
@@ -84,20 +82,24 @@ form.addEventListener("submit", async (e) => {
       nickname: nickname.slice(0, 30),
       type: currentType,
       description: description.slice(0, 200),
-      createdAt: serverTimestamp(),
     };
 
     if (currentType === "website") {
       payload.link = linkInput.value.trim();
     } else {
       const file = imageInput.files[0];
-      const path = `uploads/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      payload.imageUrl = await getDownloadURL(storageRef);
+      const ext = file.name.split(".").pop();
+      const path = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage.from("uploads").upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from("uploads").getPublicUrl(path);
+      payload.image_url = publicUrlData.publicUrl;
     }
 
-    await addDoc(collection(db, "works"), payload);
+    const { error: insertError } = await supabase.from("works").insert(payload);
+    if (insertError) throw insertError;
 
     form.reset();
     fileDrop.classList.remove("has-file");

@@ -1,10 +1,4 @@
-import { db } from "./firebase-config.js";
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { supabase } from "./supabase-config.js";
 
 const grid = document.getElementById("gallery-grid");
 const emptyState = document.getElementById("empty-state");
@@ -25,7 +19,7 @@ function renderCard(work) {
   const isWebsite = work.type === "website";
   const media = isWebsite
     ? `<div class="card-media link-media">${linkIcon}<span class="mono">網站連結</span></div>`
-    : `<div class="card-media"><img src="${escapeHtml(work.imageUrl)}" alt="${escapeHtml(
+    : `<div class="card-media"><img src="${escapeHtml(work.image_url)}" alt="${escapeHtml(
         work.nickname
       )} 的作品" loading="lazy" /></div>`;
 
@@ -47,23 +41,41 @@ function renderCard(work) {
   return card;
 }
 
-const q = query(collection(db, "works"), orderBy("createdAt", "desc"));
-
-onSnapshot(q, (snapshot) => {
+function renderWorks(works) {
   grid.querySelectorAll(".card").forEach((el) => el.remove());
 
-  if (snapshot.empty) {
+  if (works.length === 0) {
     emptyState.classList.remove("hidden");
     countLabel.textContent = "即時更新中";
     return;
   }
 
   emptyState.classList.add("hidden");
-  countLabel.textContent = `${snapshot.size} 件作品・即時更新中`;
+  countLabel.textContent = `${works.length} 件作品・即時更新中`;
 
-  snapshot.docs.forEach((doc, i) => {
-    const card = renderCard(doc.data());
+  works.forEach((work, i) => {
+    const card = renderCard(work);
     card.style.animationDelay = `${Math.min(i, 12) * 0.05}s`;
     grid.appendChild(card);
   });
-});
+}
+
+async function loadWorks() {
+  const { data, error } = await supabase
+    .from("works")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+  renderWorks(data);
+}
+
+loadWorks();
+
+supabase
+  .channel("works-changes")
+  .on("postgres_changes", { event: "*", schema: "public", table: "works" }, loadWorks)
+  .subscribe();
