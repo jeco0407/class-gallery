@@ -13,6 +13,7 @@ const MIN_LEN = 52;
 const PAIR_GAP = 6.2;
 
 let hallLen = MIN_LEN;
+let shellBuilt = false;
 let plinthZ = -14;
 
 const SECTIONS = ["WEBSITES", "IMAGES"];
@@ -369,10 +370,11 @@ function rebuildScene(works) {
   const pairsCount = Math.max(1, Math.ceil(works.length / 2));
   const needed = Math.max(MIN_LEN, Math.round((pairsCount * PAIR_GAP * 1.55 + 20) / 4) * 4);
 
-  if (needed !== hallLen) {
+  if (!shellBuilt || needed !== hallLen) {
     disposeObjects(shellObjects);
     hallLen = needed;
     shellObjects = buildShell(hallLen);
+    shellBuilt = true;
   }
 
   disposeObjects(artworkObjects);
