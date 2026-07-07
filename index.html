@@ -3,24 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>作品畫廊牆</title>
+    <title>作品走廊</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="gallery-header">
-      <h1 class="title">今天的<em>作品</em>牆</h1>
-      <div class="meta">
+    <div class="hud">
+      <div class="hud-title">今天的<em>作品</em>走廊</div>
+      <div class="hud-meta">
         <span class="pulse-dot"></span>
         <span id="count-label">即時更新中</span>
       </div>
-    </header>
+      <div class="hud-hint">↑↓ 方向鍵，或手指滑動前進／後退・點擊作品查看</div>
+    </div>
 
-    <main class="grid" id="gallery-grid">
-      <div class="empty-state" id="empty-state">
-        <span class="big">還沒有人上傳作品</span>
-        掃描 QR code，成為第一個上牆的人
-      </div>
-    </main>
+    <div class="corridor" id="corridor">
+      <div class="corridor-track" id="corridor-track"></div>
+      <div class="corridor-fog"></div>
+    </div>
+
+    <div class="empty-state hidden" id="empty-state">
+      <span class="big">還沒有人上傳作品</span>
+      掃描 QR code，成為第一個掛上牆的人
+    </div>
+
+    <div class="modal hidden" id="modal">
+      <button class="modal-close" id="modal-close" aria-label="關閉">✕</button>
+      <div class="modal-content" id="modal-content"></div>
+    </div>
 
     <script type="module" src="app-gallery.js"></script>
   </body>
