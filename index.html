@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>作品畫廊牆</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="gallery-header">
+      <h1 class="title">今天的<em>作品</em>牆</h1>
+      <div class="meta">
+        <span class="pulse-dot"></span>
+        <span id="count-label">即時更新中</span>
+      </div>
+    </header>
+
+    <main class="grid" id="gallery-grid">
+      <div class="empty-state" id="empty-state">
+        <span class="big">還沒有人上傳作品</span>
+        掃描 QR code，成為第一個上牆的人
+      </div>
+    </main>
+
+    <script type="module" src="app-gallery.js"></script>
+  </body>
+</html>

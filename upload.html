@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>上傳你的作品</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="upload-wrap">
+      <div class="upload-header">
+        <div class="kicker">Show &amp; Tell</div>
+        <h1>上傳你的作品</h1>
+      </div>
+
+      <form id="upload-form" novalidate>
+        <div class="field">
+          <label for="nickname">你的暱稱</label>
+          <input type="text" id="nickname" maxlength="30" placeholder="例如：小美" required />
+        </div>
+
+        <div class="field">
+          <label>作品類型</label>
+          <div class="type-toggle">
+            <button type="button" data-type="website" class="active">🔗 網站連結</button>
+            <button type="button" data-type="image">🖼️ 圖片</button>
+          </div>
+        </div>
+
+        <div class="field" id="link-field">
+          <label for="link">網站連結</label>
+          <input type="url" id="link" placeholder="https://your-site.vercel.app" />
+        </div>
+
+        <div class="field hidden" id="image-field">
+          <label>選擇圖片（限 5MB 以內）</label>
+          <div class="file-drop" id="file-drop">
+            <span id="file-drop-label">點擊選擇圖片，或拍照上傳</span>
+            <input type="file" id="image" accept="image/*" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="description">簡短說明（選填）</label>
+          <textarea id="description" maxlength="200" placeholder="這個作品做了什麼？"></textarea>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submit-btn">送出上牆</button>
+        <p class="status-msg" id="status-msg"></p>
+      </form>
+    </div>
+
+    <script type="module" src="app-upload.js"></script>
+  </body>
+</html>

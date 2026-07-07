@@ -1,0 +1,410 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,900;1,9..144,600&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap");
+
+:root {
+  --bg: #0b0a0f;
+  --bg-alt: #17141d;
+  --card: #1c1824;
+  --text: #f5efe6;
+  --text-dim: #a89f92;
+  --accent: #ff5f3d;
+  --accent-2: #ffd23f;
+  --line: rgba(245, 239, 230, 0.12);
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Work Sans", sans-serif;
+  min-height: 100%;
+}
+
+body {
+  background-image: radial-gradient(
+      ellipse 120% 80% at 15% -10%,
+      rgba(255, 95, 61, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(ellipse 100% 70% at 100% 110%, rgba(255, 210, 63, 0.1), transparent 60%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Fraunces", serif;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+.mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* ---------- Gallery page ---------- */
+
+.gallery-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 2.2rem clamp(1.5rem, 4vw, 3.5rem) 1.4rem;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.gallery-header .title {
+  font-size: clamp(1.8rem, 3.4vw, 3rem);
+  line-height: 1;
+}
+
+.gallery-header .title em {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.gallery-header .meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+.pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(255, 95, 61, 0.6);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 95, 61, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 95, 61, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 95, 61, 0);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.4rem;
+  padding: 1.8rem clamp(1.5rem, 4vw, 3.5rem) 4rem;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 5rem 1rem;
+  color: var(--text-dim);
+}
+
+.empty-state .big {
+  font-family: "Fraunces", serif;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-style: italic;
+  color: var(--text);
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+.card {
+  position: relative;
+  background: linear-gradient(155deg, var(--card), var(--bg-alt));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 14px 30px var(--shadow);
+  transform: translateY(0);
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+  animation: card-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.card:hover {
+  transform: translateY(-6px) rotate(-0.4deg);
+  border-color: rgba(255, 95, 61, 0.5);
+  box-shadow: 0 20px 40px var(--shadow);
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-media {
+  aspect-ratio: 16/10;
+  width: 100%;
+  background: #0f0d13;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+
+.card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-media.link-media {
+  background: radial-gradient(circle at 30% 20%, rgba(255, 210, 63, 0.18), transparent 60%),
+    var(--bg-alt);
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--accent-2);
+}
+
+.card-media.link-media svg {
+  width: 34px;
+  height: 34px;
+}
+
+.card-body {
+  padding: 1.1rem 1.2rem 1.3rem;
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.55rem;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+}
+
+.badge.website {
+  color: var(--accent-2);
+  border-color: rgba(255, 210, 63, 0.35);
+}
+
+.badge.image {
+  color: var(--accent);
+  border-color: rgba(255, 95, 61, 0.35);
+}
+
+.card-nick {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.card-desc {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-top: 0.3rem;
+}
+
+.card-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  font-size: 0.85rem;
+  color: var(--accent-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.card-link-btn:hover {
+  border-color: var(--accent-2);
+}
+
+/* ---------- Upload page ---------- */
+
+.upload-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2.4rem 1.4rem 4rem;
+  min-height: 100vh;
+}
+
+.upload-header {
+  margin-bottom: 1.8rem;
+}
+
+.upload-header .kicker {
+  font-family: "JetBrains Mono", monospace;
+  color: var(--accent);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.upload-header h1 {
+  font-size: clamp(1.7rem, 7vw, 2.3rem);
+  margin-top: 0.4rem;
+}
+
+.field {
+  margin-bottom: 1.3rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.field input[type="text"],
+.field input[type="url"],
+.field textarea {
+  width: 100%;
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  color: var(--text);
+  font-family: "Work Sans", sans-serif;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--accent);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.type-toggle button {
+  padding: 0.9rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-alt);
+  color: var(--text-dim);
+  font-family: "Work Sans", sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-toggle button.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: linear-gradient(155deg, rgba(255, 95, 61, 0.18), rgba(255, 210, 63, 0.08));
+}
+
+.file-drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 1.6rem 1rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  position: relative;
+}
+
+.file-drop.has-file {
+  border-color: var(--accent-2);
+  color: var(--text);
+}
+
+.file-drop input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 100px;
+  border: none;
+  background: var(--accent);
+  color: #180c08;
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status-msg {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+
+.status-msg.ok {
+  color: var(--accent-2);
+}
+
+.status-msg.err {
+  color: var(--accent);
+}
+
+.hidden {
+  display: none !important;
+}
