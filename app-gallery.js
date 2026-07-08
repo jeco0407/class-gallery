@@ -559,13 +559,10 @@ async function loadWorks() {
   }
 
   const emptyState = document.getElementById("empty-state");
-  const countLabel = document.getElementById("count-label");
   if (data.length === 0) {
     emptyState.classList.remove("hidden");
-    countLabel.textContent = "即時更新中";
   } else {
     emptyState.classList.add("hidden");
-    countLabel.textContent = `${data.length} 件作品・即時更新中`;
   }
 
   const cornerWorks = document.getElementById("cornerWorks");
@@ -791,37 +788,6 @@ modal.addEventListener("click", (e) => {
 addEventListener("keydown", (e) => {
   if (e.code === "Escape") modal.classList.remove("open");
 });
-
-/* ════════════════════════════════════════════════
-   側欄章節
-   ════════════════════════════════════════════════ */
-const secWrap = document.getElementById("sections");
-SECTIONS.forEach((nm, i) => {
-  const d = document.createElement("div");
-  d.className = "sec";
-  d.innerHTML = `<div class="no">0${i + 1}</div><div class="nm">${nm}</div>`;
-  d.onclick = () => {
-    const first = currentWorks.find((w) => w._sec === i);
-    if (!first) return;
-    camZTween = first._z + 3.4;
-    yaw = 0;
-  };
-  secWrap.appendChild(d);
-});
-function updateSections() {
-  let best = 0,
-    bd = 1e9;
-  SECTIONS.forEach((_, i) => {
-    const w = currentWorks.find((v) => v._sec === i);
-    if (!w) return;
-    const d = Math.abs(camera.position.z - w._z);
-    if (d < bd) {
-      bd = d;
-      best = i;
-    }
-  });
-  [...secWrap.children].forEach((el, i) => el.classList.toggle("active", i === best));
-}
 
 /* ════════════════════════════════════════════════
    小地圖
@@ -1076,7 +1042,6 @@ function loop(now) {
   update(dt, now / 1000);
   if (featuredMesh) featuredMesh.rotation.y += dt * 0.6;
   updateFocus();
-  updateSections();
   drawMinimap();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
