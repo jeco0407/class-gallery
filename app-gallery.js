@@ -1083,7 +1083,8 @@ let prev = performance.now();
 function loop(now) {
   const dt = Math.min(0.05, (now - prev) / 1000);
   prev = now;
-  update(dt, now / 1000);
+  const t = now / 1000;
+  update(dt, t);
   if (featuredMesh) featuredMesh.position.y = featuredBaseY + Math.sin(t * 1.1) * 0.06;
   updateFocus();
   drawMinimap();
