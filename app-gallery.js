@@ -11,6 +11,7 @@ const HALL_H = 5.6;
 const EYE = 1.62;
 const MIN_LEN = 52;
 const PAIR_GAP = 6.2;
+const MIN_SLOTS = 6;
 
 let hallLen = MIN_LEN;
 let shellBuilt = false;
@@ -127,6 +128,24 @@ function makeWebsiteCanvas(work) {
   x.arc(440, 560, 90, 0, Math.PI * 2);
   x.stroke();
   grain(x, c.width, c.height, 0.06);
+  return c;
+}
+
+function makeBlankCanvas() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 682;
+  const x = c.getContext("2d");
+  x.fillStyle = "#efe9dc";
+  x.fillRect(0, 0, c.width, c.height);
+  grain(x, c.width, c.height, 0.05);
+  x.strokeStyle = "rgba(20,17,13,.14)";
+  x.lineWidth = 2;
+  x.strokeRect(20, 20, c.width - 40, c.height - 40);
+  x.fillStyle = "rgba(60,54,44,.4)";
+  x.font = "22px Montserrat, sans-serif";
+  x.textAlign = "center";
+  x.fillText("尚未上傳", c.width / 2, c.height / 2);
   return c;
 }
 
@@ -316,12 +335,40 @@ let artworkObjects = [];
 let artMeshes = [];
 let currentWorks = [];
 
-function buildArtworks(works) {
+function slotTransform(i) {
   const startZ = hallLen / 2 - 8.5;
+  const side = i % 2 === 0 ? -1 : 1;
+  const z = startZ - Math.floor(i / 2) * PAIR_GAP * 1.55 - (i % 2) * PAIR_GAP * 0.55;
+  return { side, z };
+}
 
-  works.forEach((work, i) => {
-    const side = i % 2 === 0 ? -1 : 1;
-    const z = startZ - Math.floor(i / 2) * PAIR_GAP * 1.55 - (i % 2) * PAIR_GAP * 0.55;
+function buildBlankFrame(i) {
+  const { side, z } = slotTransform(i);
+  const w = 2.3,
+    h = 3.0;
+
+  const map = new THREE.CanvasTexture(makeBlankCanvas());
+  map.colorSpace = THREE.SRGBColorSpace;
+
+  const grp = new THREE.Group();
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.09), new THREE.MeshLambertMaterial({ color: 0x14110d }));
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map }));
+  pic.position.z = 0.055;
+  grp.add(frame, pic);
+  grp.position.set(side * (HALL_W / 2 - 0.1), 2.55, z);
+  grp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+  scene.add(grp);
+  artworkObjects.push(grp);
+}
+
+function buildFrames(works, slotCount) {
+  for (let i = 0; i < slotCount; i++) {
+    if (i >= works.length) {
+      buildBlankFrame(i);
+      continue;
+    }
+    const work = works[i];
+    const { side, z } = slotTransform(i);
     const big = i % 3 === 0;
     const w = big ? 3.2 : 2.3;
     const h = big ? 4.0 : 3.0;
@@ -375,7 +422,7 @@ function buildArtworks(works) {
     plaque.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
     scene.add(plaque);
     artworkObjects.push(plaque);
-  });
+  }
 }
 
 /* ════════════════════════════════════════════════
@@ -384,7 +431,8 @@ function buildArtworks(works) {
 function rebuildScene(works) {
   currentWorks = works;
 
-  const pairsCount = Math.max(1, Math.ceil(works.length / 2));
+  const slotCount = Math.max(MIN_SLOTS, works.length);
+  const pairsCount = Math.max(1, Math.ceil(slotCount / 2));
   const needed = Math.max(MIN_LEN, Math.round((pairsCount * PAIR_GAP * 1.55 + 20) / 4) * 4);
 
   if (!shellBuilt || needed !== hallLen) {
@@ -397,7 +445,7 @@ function rebuildScene(works) {
   disposeObjects(artworkObjects);
   artworkObjects = [];
   artMeshes = [];
-  buildArtworks(works);
+  buildFrames(works, slotCount);
 
   camera.position.x = clamp(camera.position.x, -HALL_W / 2 + 0.7, HALL_W / 2 - 0.7);
   camera.position.z = clamp(camera.position.z, -hallLen / 2 + 1.2, hallLen / 2 - 1.2);
