@@ -795,6 +795,16 @@ a {
   color: var(--accent);
 }
 
+.gallery-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
 .hidden {
   display: none !important;
 }
