@@ -641,38 +641,6 @@ a {
 #intro.gone .stage {
   opacity: 0;
 }
-#intro .corner {
-  position: absolute;
-  font-size: 10px;
-  letter-spacing: 0.3em;
-  color: var(--bone-dim);
-  line-height: 2.1;
-  text-transform: uppercase;
-}
-#intro .corner span {
-  color: var(--bone-faint);
-  font-weight: 300;
-  letter-spacing: 0.22em;
-  font-size: 9px;
-}
-.c-tl {
-  top: 36px;
-  left: 42px;
-}
-.c-tr {
-  top: 36px;
-  right: 42px;
-  text-align: right;
-}
-.c-bl {
-  bottom: 92px;
-  left: 42px;
-}
-.c-br {
-  bottom: 92px;
-  right: 42px;
-  text-align: right;
-}
 #intro .mid {
   display: flex;
   flex-direction: column;
@@ -810,33 +778,13 @@ a {
     transform: rotate(360deg);
   }
 }
-#intro .secline {
-  position: absolute;
-  bottom: 36px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 36px;
-  font-size: 9px;
-  letter-spacing: 0.28em;
-  color: var(--bone-faint);
-  flex-wrap: wrap;
-  animation: fadeUp 1s 1.65s both;
-}
-#intro .secline b {
-  font-weight: 500;
-  color: var(--bone-dim);
-  margin-right: 8px;
-}
 @media (prefers-reduced-motion: reduce) {
   #intro h1 b,
   #intro .eyebrow,
   #intro .zh,
   #intro .en,
   #intro .rule,
-  .enter-ring,
-  #intro .secline {
+  .enter-ring {
     animation-duration: 0.01s;
     animation-delay: 0s;
   }
@@ -876,23 +824,6 @@ a {
   #modal img {
     max-width: 100%;
     max-height: 44vh;
-  }
-  .c-bl,
-  .c-br {
-    display: none;
-  }
-  .c-tl {
-    left: 20px;
-    top: 24px;
-  }
-  .c-tr {
-    right: 20px;
-    top: 24px;
-  }
-  #intro .secline {
-    gap: 14px;
-    padding: 0 16px;
-    bottom: 24px;
   }
   #intro .zh {
     letter-spacing: 0.4em;

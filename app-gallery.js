@@ -577,9 +577,6 @@ async function loadWorks() {
     emptyState.classList.add("hidden");
   }
 
-  const cornerWorks = document.getElementById("cornerWorks");
-  if (cornerWorks) cornerWorks.innerHTML = `${data.length} Works<br><span>${SECTIONS.length} Sections</span>`;
-
   rebuildScene(data);
 }
 
@@ -981,10 +978,6 @@ const introTitleEl = document.getElementById("introTitle");
   b.style.setProperty("--i", i);
   introTitleEl.appendChild(b);
 });
-document.getElementById("introSecs").innerHTML = SECTIONS.map(
-  (s, i) => `<span><b>0${i + 1}</b>${s}</span>`
-).join("");
-
 function playDoorSound() {
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === "suspended") actx.resume();
