@@ -928,17 +928,22 @@ function scheduleMusic() {
 }
 
 function toggleSound() {
-  if (!actx) {
-    actx = new (window.AudioContext || window.webkitAudioContext)();
-    gainNode = actx.createGain();
-    gainNode.gain.value = 0;
-    gainNode.connect(actx.destination);
-    nextNoteTime = actx.currentTime + 0.1;
-    scheduleMusic();
+  try {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      gainNode = actx.createGain();
+      gainNode.gain.value = 0;
+      gainNode.connect(actx.destination);
+      nextNoteTime = actx.currentTime + 0.1;
+      scheduleMusic();
+    }
+    if (actx.state === "suspended") actx.resume();
+    soundOn = !soundOn;
+    gainNode.gain.linearRampToValueAtTime(soundOn ? 1 : 0, actx.currentTime + 0.8);
+    document.getElementById("soundState").textContent = soundOn ? "ON" : "OFF";
+  } catch (err) {
+    console.error("音效啟動失敗", err);
   }
-  soundOn = !soundOn;
-  gainNode.gain.linearRampToValueAtTime(soundOn ? 1 : 0, actx.currentTime + 0.8);
-  document.getElementById("soundState").textContent = soundOn ? "ON" : "OFF";
 }
 document.getElementById("soundBtn").onclick = toggleSound;
 document.getElementById("fsBtn").onclick = () => {
