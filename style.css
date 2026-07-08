@@ -575,45 +575,273 @@ a {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: var(--bg);
+  overflow: hidden;
+  cursor: pointer;
+  perspective: 1500px;
+  font-family: var(--nova-sans);
+}
+.door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.2%;
+  z-index: 0;
+  background: linear-gradient(180deg, #17120d, #0e0b08 58%, #141009);
+  box-shadow: inset 0 0 0 1px #ffffff0a, inset 0 0 110px #000c;
+  transition: transform 1.7s cubic-bezier(0.68, 0, 0.16, 1);
+}
+.door.dl {
+  left: 0;
+  transform-origin: left center;
+  border-right: 1px solid #e0c48c40;
+}
+.door.dr {
+  right: 0;
+  transform-origin: right center;
+  border-left: 1px solid #e0c48c40;
+}
+.door::before,
+.door::after {
+  content: "";
+  position: absolute;
+  left: 11%;
+  right: 11%;
+  border: 1px solid #e0c48c1c;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffffff06, transparent 40%);
+  box-shadow: inset 0 3px 14px #000c;
+}
+.door::before {
+  top: 8%;
+  height: 35%;
+}
+.door::after {
+  top: 52%;
+  height: 38%;
+}
+#intro.gone .dl {
+  transform: rotateY(-108deg);
+}
+#intro.gone .dr {
+  transform: rotateY(108deg);
+}
+#intro.gone {
+  pointer-events: none;
+}
+#intro .stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.55s;
+}
+#intro.gone .stage {
+  opacity: 0;
+}
+#intro .corner {
+  position: absolute;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--bone-dim);
+  line-height: 2.1;
+  text-transform: uppercase;
+}
+#intro .corner span {
+  color: var(--bone-faint);
+  font-weight: 300;
+  letter-spacing: 0.22em;
+  font-size: 9px;
+}
+.c-tl {
+  top: 36px;
+  left: 42px;
+}
+.c-tr {
+  top: 36px;
+  right: 42px;
+  text-align: right;
+}
+.c-bl {
+  bottom: 92px;
+  left: 42px;
+}
+.c-br {
+  bottom: 92px;
+  right: 42px;
+  text-align: right;
+}
+#intro .mid {
   display: flex;
   flex-direction: column;
   align-items: center;
+  text-align: center;
+  padding: 0 20px;
+}
+#intro .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.52em;
+  text-indent: 0.52em;
+  color: var(--gold);
+  animation: fadeUp 1s 0.15s both;
+}
+#intro h1 {
+  margin-top: 30px;
+  font-weight: 200;
+  color: #fff;
+  display: flex;
   justify-content: center;
-  gap: 26px;
-  transition: opacity 0.8s;
-  cursor: pointer;
-  font-family: var(--nova-sans);
+  font-size: clamp(38px, 7.2vw, 82px);
+  letter-spacing: 0;
+  gap: 0.32em;
 }
-#intro.gone {
-  opacity: 0;
-  pointer-events: none;
+#intro h1 b {
+  font-weight: 200;
+  display: inline-block;
+  animation: letterIn 0.9s both;
+  animation-delay: calc(0.3s + var(--i) * 0.06s);
 }
-#intro .big {
-  font-size: clamp(34px, 6vw, 58px);
-  letter-spacing: 0.55em;
-  text-indent: 0.55em;
+#intro h1 b.sp {
+  width: 0.55em;
+}
+@keyframes letterIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#intro .rule {
+  width: 0;
+  height: 1px;
+  margin-top: 36px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  animation: ruleGrow 1.2s 0.95s forwards;
+}
+@keyframes ruleGrow {
+  to {
+    width: 190px;
+  }
+}
+#intro .zh {
+  margin-top: 30px;
+  font-size: 14px;
+  letter-spacing: 0.62em;
+  text-indent: 0.62em;
+  color: var(--bone);
   font-weight: 300;
-  color: #fff;
+  animation: fadeUp 1s 1.15s both;
 }
-#intro .sub {
+#intro .en {
+  margin-top: 14px;
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--bone-faint);
+  animation: fadeUp 1s 1.3s both;
+}
+.enter-ring {
+  position: relative;
+  width: 106px;
+  height: 106px;
+  margin-top: 46px;
+  display: grid;
+  place-items: center;
+  animation: fadeUp 1s 1.5s both;
+}
+.enter-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: spin 16s linear infinite;
+}
+.enter-ring circle {
+  fill: none;
+  stroke: #e0c48c88;
+  stroke-width: 1;
+  stroke-dasharray: 4 7;
+}
+.enter-ring::before {
+  content: "";
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  border: 1px solid #ffffff26;
+  transition: inset 0.35s, border-color 0.35s;
+}
+#intro:hover .enter-ring::before {
+  inset: 8px;
+  border-color: #ffffff66;
+}
+.enter-ring span {
+  position: relative;
   font-size: 11px;
-  letter-spacing: 0.4em;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: #fff;
+  line-height: 2;
+}
+.enter-ring em {
+  font-style: normal;
+  font-size: 8px;
   color: var(--bone-dim);
-  text-indent: 0.4em;
+  letter-spacing: 0.36em;
 }
-#intro .enter {
-  margin-top: 26px;
-  font-size: 11px;
-  letter-spacing: 0.34em;
-  color: #fff;
-  border: 1px solid #ffffff44;
-  border-radius: 999px;
-  padding: 14px 38px 14px 42px;
-  transition: background 0.3s;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-#intro:hover .enter {
-  background: #ffffff14;
+#intro .secline {
+  position: absolute;
+  bottom: 36px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  color: var(--bone-faint);
+  flex-wrap: wrap;
+  animation: fadeUp 1s 1.65s both;
+}
+#intro .secline b {
+  font-weight: 500;
+  color: var(--bone-dim);
+  margin-right: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  #intro h1 b,
+  #intro .eyebrow,
+  #intro .zh,
+  #intro .en,
+  #intro .rule,
+  .enter-ring,
+  #intro .secline {
+    animation-duration: 0.01s;
+    animation-delay: 0s;
+  }
+  .enter-ring svg {
+    animation: none;
+  }
 }
 
 @media (max-width: 820px) {
@@ -669,6 +897,27 @@ a {
   #modal img {
     max-width: 100%;
     max-height: 44vh;
+  }
+  .c-bl,
+  .c-br {
+    display: none;
+  }
+  .c-tl {
+    left: 20px;
+    top: 24px;
+  }
+  .c-tr {
+    right: 20px;
+    top: 24px;
+  }
+  #intro .secline {
+    gap: 14px;
+    padding: 0 16px;
+    bottom: 24px;
+  }
+  #intro .zh {
+    letter-spacing: 0.4em;
+    text-indent: 0.4em;
   }
 }
 

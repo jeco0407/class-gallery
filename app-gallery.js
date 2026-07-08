@@ -420,6 +420,9 @@ async function loadWorks() {
     countLabel.textContent = `${data.length} 件作品・即時更新中`;
   }
 
+  const cornerWorks = document.getElementById("cornerWorks");
+  if (cornerWorks) cornerWorks.innerHTML = `${data.length} Works<br><span>${SECTIONS.length} Sections</span>`;
+
   rebuildScene(data);
 }
 
@@ -438,6 +441,7 @@ let dragging = false,
   ly = 0,
   moved = 0;
 function dStart(x, y) {
+  if (introActive) return;
   dragging = true;
   lx = x;
   ly = y;
@@ -487,7 +491,18 @@ const holds = {};
 });
 
 let camZTween = null;
+let introActive = true;
 function update(dt, t) {
+  if (introActive) {
+    /* 進場前:鏡頭在門後方緩慢漂移 */
+    yaw = Math.sin(t * 0.1) * 0.05;
+    pitch = 0.02 + Math.sin(t * 0.07) * 0.015;
+    camera.position.set(Math.sin(t * 0.06) * 0.4, EYE, hallLen / 2 - 2.6);
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = yaw;
+    camera.rotation.x = pitch;
+    return;
+  }
   const f = (keys.KeyW || keys.ArrowUp || holds.KeyW ? 1 : 0) - (keys.KeyS || keys.ArrowDown || holds.KeyS ? 1 : 0);
   const s = (keys.KeyA || keys.ArrowLeft || holds.KeyA ? 1 : 0) - (keys.KeyD || keys.ArrowRight || holds.KeyD ? 1 : 0);
   const speed = keys.ShiftLeft || keys.ShiftRight ? 5.6 : 3.4;
@@ -711,12 +726,98 @@ document.addEventListener("click", (e) => {
   }
 });
 
+/* ════════════════════════════════════════════════
+   進場門扇
+   ════════════════════════════════════════════════ */
+const SITE_TITLE = "YONG HAO";
+const introTitleEl = document.getElementById("introTitle");
+[...SITE_TITLE].forEach((ch, i) => {
+  const b = document.createElement("b");
+  if (ch === " ") {
+    b.className = "sp";
+    b.innerHTML = "&nbsp;";
+  } else {
+    b.textContent = ch;
+  }
+  b.style.setProperty("--i", i);
+  introTitleEl.appendChild(b);
+});
+document.getElementById("introSecs").innerHTML = SECTIONS.map(
+  (s, i) => `<span><b>0${i + 1}</b>${s}</span>`
+).join("");
+
+function playDoorSound() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume();
+  const t0 = actx.currentTime;
+
+  const nb = actx.createBuffer(1, actx.sampleRate * 0.06, actx.sampleRate);
+  const nd = nb.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length);
+  const click = actx.createBufferSource();
+  click.buffer = nb;
+  const hp = actx.createBiquadFilter();
+  hp.type = "highpass";
+  hp.frequency.value = 1300;
+  const cg = actx.createGain();
+  cg.gain.value = 0.22;
+  click.connect(hp).connect(cg).connect(actx.destination);
+  click.start(t0);
+
+  const osc = actx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(300, t0 + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(90, t0 + 1.5);
+  const bp = actx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 480;
+  bp.Q.value = 7;
+  const og = actx.createGain();
+  og.gain.setValueAtTime(0.0001, t0 + 0.12);
+  og.gain.linearRampToValueAtTime(0.085, t0 + 0.32);
+  og.gain.linearRampToValueAtTime(0.0001, t0 + 1.55);
+  const lfo = actx.createOscillator();
+  lfo.frequency.value = 13;
+  const lg = actx.createGain();
+  lg.gain.value = 0.04;
+  lfo.connect(lg).connect(og.gain);
+  osc.connect(bp).connect(og).connect(actx.destination);
+  osc.start(t0 + 0.12);
+  osc.stop(t0 + 1.6);
+  lfo.start(t0);
+  lfo.stop(t0 + 1.6);
+
+  const th = actx.createOscillator();
+  th.type = "sine";
+  th.frequency.value = 66;
+  const tg = actx.createGain();
+  tg.gain.setValueAtTime(0.0001, t0 + 1.45);
+  tg.gain.exponentialRampToValueAtTime(0.28, t0 + 1.52);
+  tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.05);
+  th.connect(tg).connect(actx.destination);
+  th.start(t0 + 1.45);
+  th.stop(t0 + 2.1);
+}
+
 const introEl = document.getElementById("intro");
 introEl.addEventListener("click", function () {
+  if (!introActive) return;
+  introActive = false;
+  playDoorSound();
   this.classList.add("gone");
+  yaw = 0;
+  pitch = 0;
+  setTimeout(() => {
+    camZTween = hallLen / 2 - 10;
+  }, 500);
 });
+
 if (new URLSearchParams(location.search).get("enter") === "1") {
+  introActive = false;
   introEl.classList.add("gone");
+  yaw = 0;
+  pitch = 0;
+  camera.position.set(0, EYE, hallLen / 2 - 10);
   history.replaceState(null, "", location.pathname);
 }
 
