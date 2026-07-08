@@ -155,6 +155,8 @@ function makeBlankCanvas() {
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("scene"), antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x14110d);
@@ -165,6 +167,17 @@ camera.position.set(0, EYE, hallLen / 2 - 3);
 
 scene.add(new THREE.HemisphereLight(0x9aa4ad, 0x2c241a, 0.9));
 scene.add(new THREE.AmbientLight(0x594e3e, 0.85));
+
+/* 跟著鏡頭走的補光,順便投射陰影(讓走廊有立體感) */
+const shadowLight = new THREE.PointLight(0xfff2e0, 0.5, 16, 2);
+shadowLight.position.set(0, 1.2, 1.5);
+shadowLight.castShadow = true;
+shadowLight.shadow.mapSize.set(1024, 1024);
+shadowLight.shadow.bias = -0.003;
+shadowLight.shadow.camera.near = 0.3;
+shadowLight.shadow.camera.far = 16;
+camera.add(shadowLight);
+scene.add(camera);
 
 let shellObjects = [];
 
@@ -212,23 +225,27 @@ function buildShell(len) {
   const wallL = new THREE.Mesh(new THREE.PlaneGeometry(len, HALL_H), wallMat);
   wallL.rotation.y = Math.PI / 2;
   wallL.position.set(-HALL_W / 2, HALL_H / 2, 0);
+  wallL.receiveShadow = true;
   scene.add(wallL);
   objs.push(wallL);
 
   const wallR = wallL.clone();
   wallR.rotation.y = -Math.PI / 2;
   wallR.position.x = HALL_W / 2;
+  wallR.receiveShadow = true;
   scene.add(wallR);
   objs.push(wallR);
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL_W, len), new THREE.MeshLambertMaterial({ map: floorTexture() }));
   floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
   scene.add(floor);
   objs.push(floor);
 
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(HALL_W, len), new THREE.MeshLambertMaterial({ color: 0x241f19 }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = HALL_H;
+  ceil.receiveShadow = true;
   scene.add(ceil);
   objs.push(ceil);
 
@@ -303,6 +320,8 @@ function buildShell(len) {
   plinthZ = -len * (14 / 52);
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 0.95), new THREE.MeshLambertMaterial({ color: 0x4a4237 }));
   plinth.position.set(0, 0.275, plinthZ);
+  plinth.castShadow = true;
+  plinth.receiveShadow = true;
   scene.add(plinth);
   objs.push(plinth);
 
@@ -354,6 +373,8 @@ function buildBlankFrame(i) {
   const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.09), new THREE.MeshLambertMaterial({ color: 0x14110d }));
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map }));
   pic.position.z = 0.055;
+  frame.castShadow = true;
+  frame.receiveShadow = true;
   grp.add(frame, pic);
   grp.position.set(side * (HALL_W / 2 - 0.1), 2.55, z);
   grp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -394,6 +415,8 @@ function buildFrames(works, slotCount) {
     const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map }));
     pic.position.z = 0.055;
     pic.userData.work = work;
+    frame.castShadow = true;
+    frame.receiveShadow = true;
     grp.add(frame, pic);
     grp.position.set(side * (HALL_W / 2 - 0.1), 2.55, z);
     grp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
