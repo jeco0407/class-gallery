@@ -872,31 +872,72 @@ function drawMinimap() {
 let actx = null,
   soundOn = false,
   gainNode = null;
+
+/* 音名對應頻率(等律,A4=440Hz),只列用得到的音 */
+const NOTE = {
+  D3: 146.83,
+  "F#3": 185.0,
+  G3: 196.0,
+  A3: 220.0,
+  B3: 246.94,
+  "C#4": 277.18,
+  D4: 293.66,
+  E4: 329.63,
+  "F#4": 369.99,
+  A4: 440.0,
+};
+
+/* 帕海貝爾《卡農》和弦進行的琶音(公版古典樂,程式合成、不需外部音檔) */
+const CANON_PATTERN = [
+  NOTE.D4, NOTE["F#4"], NOTE.A4,
+  NOTE.A3, NOTE["C#4"], NOTE.E4,
+  NOTE.B3, NOTE.D4, NOTE["F#4"],
+  NOTE["F#3"], NOTE.A3, NOTE["C#4"],
+  NOTE.G3, NOTE.B3, NOTE.D4,
+  NOTE.D3, NOTE["F#3"], NOTE.A3,
+  NOTE.G3, NOTE.B3, NOTE.D4,
+  NOTE.A3, NOTE["C#4"], NOTE.E4,
+];
+const NOTE_INTERVAL = 0.44;
+let noteIndex = 0,
+  nextNoteTime = 0;
+
+function scheduleNote(freq, time) {
+  const osc = actx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.value = freq;
+  const filt = actx.createBiquadFilter();
+  filt.type = "lowpass";
+  filt.frequency.value = 2200;
+  const ng = actx.createGain();
+  ng.gain.setValueAtTime(0.0001, time);
+  ng.gain.linearRampToValueAtTime(0.16, time + 0.03);
+  ng.gain.exponentialRampToValueAtTime(0.0001, time + NOTE_INTERVAL * 2.1);
+  osc.connect(filt).connect(ng).connect(gainNode);
+  osc.start(time);
+  osc.stop(time + NOTE_INTERVAL * 2.2);
+}
+
+function scheduleMusic() {
+  while (nextNoteTime < actx.currentTime + 0.2) {
+    scheduleNote(CANON_PATTERN[noteIndex], nextNoteTime);
+    nextNoteTime += NOTE_INTERVAL;
+    noteIndex = (noteIndex + 1) % CANON_PATTERN.length;
+  }
+  setTimeout(scheduleMusic, 60);
+}
+
 function toggleSound() {
   if (!actx) {
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    const len = actx.sampleRate * 3,
-      buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      const w = Math.random() * 2 - 1;
-      last = (last + 0.02 * w) / 1.02;
-      d[i] = last * 3.2;
-    }
-    const src = actx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-    const lp = actx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 220;
     gainNode = actx.createGain();
     gainNode.gain.value = 0;
-    src.connect(lp).connect(gainNode).connect(actx.destination);
-    src.start();
+    gainNode.connect(actx.destination);
+    nextNoteTime = actx.currentTime + 0.1;
+    scheduleMusic();
   }
   soundOn = !soundOn;
-  gainNode.gain.linearRampToValueAtTime(soundOn ? 0.06 : 0, actx.currentTime + 0.8);
+  gainNode.gain.linearRampToValueAtTime(soundOn ? 1 : 0, actx.currentTime + 0.8);
   document.getElementById("soundState").textContent = soundOn ? "ON" : "OFF";
 }
 document.getElementById("soundBtn").onclick = toggleSound;
