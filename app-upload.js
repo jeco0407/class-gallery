@@ -10,7 +10,6 @@ const fileDrop = document.getElementById("file-drop");
 const fileDropLabel = document.getElementById("file-drop-label");
 const submitBtn = document.getElementById("submit-btn");
 const statusMsg = document.getElementById("status-msg");
-const galleryLink = document.getElementById("gallery-link");
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -106,7 +105,6 @@ form.addEventListener("submit", async (e) => {
     fileDrop.classList.remove("has-file");
     fileDropLabel.textContent = "點擊選擇圖片，或拍照上傳";
     setStatus("上傳成功！快看看教室螢幕 🎉", "ok");
-    galleryLink.classList.remove("hidden");
   } catch (err) {
     console.error(err);
     setStatus("上傳失敗，請再試一次", "err");
