@@ -144,8 +144,8 @@ scene.fog = new THREE.Fog(0x14110d, 20, 64);
 const camera = new THREE.PerspectiveCamera(68, 1, 0.1, 120);
 camera.position.set(0, EYE, hallLen / 2 - 3);
 
-scene.add(new THREE.HemisphereLight(0x9aa4ad, 0x2c241a, 0.55));
-scene.add(new THREE.AmbientLight(0x594e3e, 0.5));
+scene.add(new THREE.HemisphereLight(0x9aa4ad, 0x2c241a, 0.9));
+scene.add(new THREE.AmbientLight(0x594e3e, 0.85));
 
 let shellObjects = [];
 
@@ -258,10 +258,27 @@ function buildShell(len) {
 
   const ambientLightCount = Math.max(1, Math.round(len / 13));
   for (let i = 0; i < ambientLightCount; i++) {
-    const p = new THREE.PointLight(0xffcf98, 0.55, 16);
+    const p = new THREE.PointLight(0xffcf98, 0.7, 16);
     p.position.set(0, 0.4, -len / 2 + 7 + i * ((len - 14) / (ambientLightCount - 1 || 1)));
     scene.add(p);
     objs.push(p);
+  }
+
+  /* 天花板燈 */
+  const ceilingLampMat = new THREE.MeshBasicMaterial({ color: 0xfff2d9 });
+  const ceilingLampCount = Math.max(3, Math.round(len / 9));
+  for (let i = 0; i < ceilingLampCount; i++) {
+    const lz = -len / 2 + 5 + i * ((len - 10) / (ceilingLampCount - 1 || 1));
+
+    const fixture = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.05, 16), ceilingLampMat);
+    fixture.position.set(0, HALL_H - 0.05, lz);
+    scene.add(fixture);
+    objs.push(fixture);
+
+    const lamp = new THREE.PointLight(0xfff2d9, 1.2, 13, 2);
+    lamp.position.set(0, HALL_H - 0.35, lz);
+    scene.add(lamp);
+    objs.push(lamp);
   }
 
   plinthZ = -len * (14 / 52);
