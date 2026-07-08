@@ -43,3 +43,13 @@ create policy "public can read uploads"
 create policy "public can upload images"
   on storage.objects for insert
   with check (bucket_id = 'uploads');
+
+-- 管理頁面用的刪除權限：admin.html 用密碼把關，但這條規則本身
+-- 對任何拿得到 anon key 的人開放刪除，屬於已知取捨（見 app-admin.js 註解）。
+create policy "public can delete works"
+  on public.works for delete
+  using (true);
+
+create policy "public can delete uploads"
+  on storage.objects for delete
+  using (bucket_id = 'uploads');

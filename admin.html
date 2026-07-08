@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理作品</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="upload-wrap">
+      <div class="upload-header">
+        <div class="kicker">Teacher Only</div>
+        <h1>管理作品</h1>
+      </div>
+
+      <div id="gate">
+        <div class="field">
+          <label for="password">管理密碼</label>
+          <input type="text" id="password" placeholder="輸入密碼" />
+        </div>
+        <button class="submit-btn" id="gate-btn">進入</button>
+        <p class="status-msg err" id="gate-msg"></p>
+      </div>
+
+      <div id="panel" class="hidden">
+        <p class="status-msg" id="admin-count"></p>
+        <div id="admin-list"></div>
+      </div>
+    </div>
+
+    <script type="module" src="app-admin.js"></script>
+  </body>
+</html>
