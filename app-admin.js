@@ -2,7 +2,7 @@ import { supabase } from "./supabase-config.js";
 
 // 純前端密碼鎖：只是擋掉不小心點進來的人，不是真的安全機制。
 // 因為 anon key 是公開的，技術上能繞過這層直接呼叫 Supabase API。
-const ADMIN_PASSWORD = "classroom2026";
+const ADMIN_PASSWORD = "jecko0407";
 
 const gate = document.getElementById("gate");
 const panel = document.getElementById("panel");
