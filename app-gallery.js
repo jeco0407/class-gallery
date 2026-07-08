@@ -472,7 +472,7 @@ const holds = {};
 let camZTween = null;
 function update(dt, t) {
   const f = (keys.KeyW || keys.ArrowUp || holds.KeyW ? 1 : 0) - (keys.KeyS || keys.ArrowDown || holds.KeyS ? 1 : 0);
-  const s = (keys.KeyD || keys.ArrowRight || holds.KeyD ? 1 : 0) - (keys.KeyA || keys.ArrowLeft || holds.KeyA ? 1 : 0);
+  const s = (keys.KeyA || keys.ArrowLeft || holds.KeyA ? 1 : 0) - (keys.KeyD || keys.ArrowRight || holds.KeyD ? 1 : 0);
   const speed = keys.ShiftLeft || keys.ShiftRight ? 5.6 : 3.4;
   if (f || s) {
     camZTween = null;
