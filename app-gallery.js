@@ -426,7 +426,7 @@ async function loadWorks() {
 /* ════════════════════════════════════════════════
    移動與視角控制
    ════════════════════════════════════════════════ */
-let yaw = Math.PI,
+let yaw = 0,
   pitch = 0;
 const keys = {};
 addEventListener("keydown", (e) => (keys[e.code] = true));
@@ -598,7 +598,7 @@ SECTIONS.forEach((nm, i) => {
     const first = currentWorks.find((w) => w._sec === i);
     if (!first) return;
     camZTween = first._z + 3.4;
-    yaw = Math.PI;
+    yaw = 0;
   };
   secWrap.appendChild(d);
 });
