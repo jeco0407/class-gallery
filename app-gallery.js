@@ -699,9 +699,14 @@ document.getElementById("fsBtn").onclick = () => {
   else document.documentElement.requestFullscreen();
 };
 
-document.getElementById("intro").addEventListener("click", function () {
+const introEl = document.getElementById("intro");
+introEl.addEventListener("click", function () {
   this.classList.add("gone");
 });
+if (new URLSearchParams(location.search).get("enter") === "1") {
+  introEl.classList.add("gone");
+  history.replaceState(null, "", location.pathname);
+}
 
 /* ════════════════════════════════════════════════
    主迴圈
