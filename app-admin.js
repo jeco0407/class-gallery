@@ -24,6 +24,12 @@ function storagePathFromUrl(url) {
   return idx >= 0 ? url.slice(idx + marker.length) : null;
 }
 
+/* image_url 是舊欄位(單張圖片),image_urls 是新欄位(輪播陣列);
+   資料庫遷移執行前後兩種形狀都可能出現,這裡做個相容防呆。 */
+function imagesOf(work) {
+  return work.image_urls || (work.image_url ? [work.image_url] : []);
+}
+
 async function loadList() {
   const { data, error } = await supabase.from("works").select("*").order("created_at", { ascending: false });
   if (error) {
@@ -38,18 +44,20 @@ async function loadList() {
     const row = document.createElement("div");
     row.className = "admin-row";
 
+    const images = imagesOf(work);
     const thumb =
       work.type === "image"
-        ? `<img class="admin-thumb" src="${escapeHtml(work.image_url)}" alt="" />`
+        ? `<img class="admin-thumb" src="${escapeHtml(images[0])}" alt="" />`
         : `<div class="admin-thumb"></div>`;
+
+    const typeLabel =
+      work.type === "website" ? "網站連結" : `圖片${images.length > 1 ? `・共 ${images.length} 張` : ""}`;
 
     row.innerHTML = `
       ${thumb}
       <div class="admin-info">
         <div class="admin-nick">${escapeHtml(work.nickname)}</div>
-        <div class="admin-meta">${work.type === "website" ? "網站連結" : "圖片"} ・ ${new Date(
-      work.created_at
-    ).toLocaleString()}</div>
+        <div class="admin-meta">${typeLabel} ・ ${new Date(work.created_at).toLocaleString()}</div>
       </div>
       <button class="admin-delete-btn">刪除</button>
     `;
@@ -61,8 +69,8 @@ async function loadList() {
       btn.textContent = "刪除中…";
 
       if (work.type === "image") {
-        const path = storagePathFromUrl(work.image_url);
-        if (path) await supabase.storage.from("uploads").remove([path]);
+        const paths = imagesOf(work).map(storagePathFromUrl).filter(Boolean);
+        if (paths.length) await supabase.storage.from("uploads").remove(paths);
       }
 
       const { error: deleteError } = await supabase.from("works").delete().eq("id", work.id);

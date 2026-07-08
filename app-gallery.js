@@ -23,6 +23,18 @@ function secOf(work) {
   return work.type === "website" ? 0 : 1;
 }
 
+/* image_url 是舊欄位(單張圖片),image_urls 是新欄位(輪播陣列);
+   資料庫遷移執行前後兩種形狀都可能出現,這裡做個相容防呆。 */
+function imagesOf(work) {
+  return work.image_urls || (work.image_url ? [work.image_url] : []);
+}
+
+function typeLabel(work) {
+  if (work.type === "website") return "網站連結";
+  const n = imagesOf(work).length || 1;
+  return n > 1 ? `圖片・共 ${n} 張` : "圖片";
+}
+
 function formatDate(iso) {
   const d = new Date(iso);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(
@@ -396,8 +408,8 @@ function loadWorkTexture(work) {
     map = new THREE.CanvasTexture(c);
     src = c.toDataURL("image/jpeg", 0.85);
   } else {
-    map = texLoader.load(work.image_url);
-    src = work.image_url;
+    src = imagesOf(work)[0];
+    map = texLoader.load(src);
   }
   map.colorSpace = THREE.SRGBColorSpace;
   return { map, src };
@@ -447,7 +459,7 @@ function buildFrames(works, slotCount) {
     px.font = "300 18px Montserrat,sans-serif";
     px.fillStyle = "#57503f";
     px.fillText(`${formatDate(work.created_at)}`, 20, 92);
-    px.fillText(work.type === "website" ? "網站連結" : "圖片", 20, 124);
+    px.fillText(typeLabel(work), 20, 124);
     px.fillStyle = "#c0392b";
     px.font = "600 20px Montserrat,sans-serif";
     px.fillText(`♥ ${work.likes || 0}`, 20, 160);
@@ -697,7 +709,7 @@ function updateFocus() {
     if (work) {
       card.querySelector(".t").textContent = work.nickname;
       card.querySelector(".y").textContent = formatDate(work.created_at);
-      card.querySelector(".m").innerHTML = work.type === "website" ? "網站連結" : "圖片";
+      card.querySelector(".m").innerHTML = typeLabel(work);
       card.querySelector(".likes").innerHTML = `♥ ${work.likes || 0}`;
       card.classList.add("show");
     } else {
@@ -762,15 +774,39 @@ mLikeBtn.addEventListener("click", () => {
   if (modalWork) toggleLike(modalWork);
 });
 
+let modalImages = [];
+let modalIndex = 0;
+const mPrevBtn = document.getElementById("mPrev");
+const mNextBtn = document.getElementById("mNext");
+const mCounter = document.getElementById("mCounter");
+
+function updateModalImage() {
+  document.getElementById("mImg").src = modalImages[modalIndex];
+  const multi = modalImages.length > 1;
+  mPrevBtn.classList.toggle("hidden", !multi);
+  mNextBtn.classList.toggle("hidden", !multi);
+  mCounter.classList.toggle("hidden", !multi);
+  if (multi) mCounter.textContent = `${modalIndex + 1} / ${modalImages.length}`;
+}
+
+mPrevBtn.addEventListener("click", () => {
+  modalIndex = (modalIndex - 1 + modalImages.length) % modalImages.length;
+  updateModalImage();
+});
+mNextBtn.addEventListener("click", () => {
+  modalIndex = (modalIndex + 1) % modalImages.length;
+  updateModalImage();
+});
+
 function openModal(work) {
   modalWork = work;
   const mLink = document.getElementById("mLink");
-  document.getElementById("mImg").src = work._src;
+  modalImages = work.type === "image" ? imagesOf(work) : [work._src];
+  modalIndex = 0;
+  updateModalImage();
   document.getElementById("mSec").textContent = `0${work._sec + 1} — ${SECTIONS[work._sec]}`;
   document.getElementById("mTitle").textContent = work.nickname;
-  document.getElementById("mMeta").innerHTML = `${formatDate(work.created_at)}<br>${
-    work.type === "website" ? "網站連結" : "圖片"
-  }`;
+  document.getElementById("mMeta").innerHTML = `${formatDate(work.created_at)}<br>${typeLabel(work)}`;
   document.getElementById("mDesc").textContent = work.description || "這位同學沒有留下說明。";
   updateLikeUI(work);
   if (work.type === "website") {

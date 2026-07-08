@@ -79,3 +79,20 @@ $$;
 
 grant execute on function public.increment_likes(uuid) to anon, authenticated;
 grant execute on function public.decrement_likes(uuid) to anon, authenticated;
+
+-- 圖片改成可上傳最多 10 張、以輪播方式呈現，欄位從單一 image_url 換成 image_urls 陣列。
+alter table public.works add column if not exists image_urls text[];
+
+update public.works
+  set image_urls = array[image_url]
+  where type = 'image' and image_url is not null and image_urls is null;
+
+alter table public.works drop constraint if exists type_payload_check;
+
+alter table public.works add constraint type_payload_check check (
+  (type = 'website' and link ~ '^https?://.+' and image_urls is null)
+  or
+  (type = 'image' and image_urls is not null and array_length(image_urls, 1) between 1 and 10 and link is null)
+);
+
+alter table public.works drop column if exists image_url;

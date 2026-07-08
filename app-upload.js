@@ -12,6 +12,7 @@ const submitBtn = document.getElementById("submit-btn");
 const statusMsg = document.getElementById("status-msg");
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGES = 10;
 
 let currentType = "website";
 
@@ -25,13 +26,14 @@ typeButtons.forEach((btn) => {
 });
 
 imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (file) {
+  const files = [...imageInput.files];
+  if (files.length > 0) {
     fileDrop.classList.add("has-file");
-    fileDropLabel.textContent = file.name;
+    fileDropLabel.textContent =
+      files.length === 1 ? files[0].name : `已選擇 ${files.length} 張圖片`;
   } else {
     fileDrop.classList.remove("has-file");
-    fileDropLabel.textContent = "點擊選擇圖片，或拍照上傳";
+    fileDropLabel.textContent = "點擊選擇圖片，或拍照上傳（可多選）";
   }
 });
 
@@ -59,18 +61,24 @@ form.addEventListener("submit", async (e) => {
       return;
     }
   } else {
-    const file = imageInput.files[0];
-    if (!file) {
-      setStatus("請選擇一張圖片", "err");
+    const files = [...imageInput.files];
+    if (files.length === 0) {
+      setStatus("請選擇至少一張圖片", "err");
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setStatus("檔案格式需為圖片", "err");
+    if (files.length > MAX_IMAGES) {
+      setStatus(`最多只能上傳 ${MAX_IMAGES} 張圖片`, "err");
       return;
     }
-    if (file.size > MAX_FILE_SIZE) {
-      setStatus("圖片超過 5MB 限制", "err");
-      return;
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        setStatus("檔案格式需為圖片", "err");
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setStatus("每張圖片都需在 5MB 以內", "err");
+        return;
+      }
     }
   }
 
@@ -87,15 +95,19 @@ form.addEventListener("submit", async (e) => {
     if (currentType === "website") {
       payload.link = linkInput.value.trim();
     } else {
-      const file = imageInput.files[0];
-      const ext = file.name.split(".").pop();
-      const path = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
+      const files = [...imageInput.files];
+      const urls = [];
+      for (const file of files) {
+        const ext = file.name.split(".").pop();
+        const path = `${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage.from("uploads").upload(path, file);
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage.from("uploads").upload(path, file);
+        if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage.from("uploads").getPublicUrl(path);
-      payload.image_url = publicUrlData.publicUrl;
+        const { data: publicUrlData } = supabase.storage.from("uploads").getPublicUrl(path);
+        urls.push(publicUrlData.publicUrl);
+      }
+      payload.image_urls = urls;
     }
 
     const { error: insertError } = await supabase.from("works").insert(payload);
@@ -103,7 +115,7 @@ form.addEventListener("submit", async (e) => {
 
     form.reset();
     fileDrop.classList.remove("has-file");
-    fileDropLabel.textContent = "點擊選擇圖片，或拍照上傳";
+    fileDropLabel.textContent = "點擊選擇圖片，或拍照上傳（可多選）";
     setStatus("上傳成功！快看看教室螢幕 🎉", "ok");
   } catch (err) {
     console.error(err);
