@@ -325,10 +325,17 @@ function buildShell(len) {
   scene.add(plinth);
   objs.push(plinth);
 
+  const plinthSpot = new THREE.PointLight(0xfff0d0, 1.3, 6, 2);
+  plinthSpot.position.set(0, HALL_H - 0.4, plinthZ);
+  scene.add(plinthSpot);
+  objs.push(plinthSpot);
+
   return objs;
 }
 
 function disposeObjects(list) {
+  // Sprite 用的是 three.js 內建共用的靜態 geometry,絕對不能 dispose,
+  // 否則會連帶弄壞畫面上其他(包含之後新建的)Sprite。
   list.forEach((obj) => {
     scene.remove(obj);
     obj.traverse?.((child) => {
@@ -336,9 +343,9 @@ function disposeObjects(list) {
         if (child.material.map) child.material.map.dispose();
         child.material.dispose();
       }
-      if (child.geometry) child.geometry.dispose();
+      if (child.geometry && !child.isSprite) child.geometry.dispose();
     });
-    if (obj.geometry) obj.geometry.dispose();
+    if (obj.geometry && !obj.isSprite) obj.geometry.dispose();
     if (obj.material) {
       if (obj.material.map) obj.material.map.dispose();
       obj.material.dispose();
@@ -382,6 +389,20 @@ function buildBlankFrame(i) {
   artworkObjects.push(grp);
 }
 
+function loadWorkTexture(work) {
+  let map, src;
+  if (work.type === "website") {
+    const c = makeWebsiteCanvas(work);
+    map = new THREE.CanvasTexture(c);
+    src = c.toDataURL("image/jpeg", 0.85);
+  } else {
+    map = texLoader.load(work.image_url);
+    src = work.image_url;
+  }
+  map.colorSpace = THREE.SRGBColorSpace;
+  return { map, src };
+}
+
 function buildFrames(works, slotCount) {
   for (let i = 0; i < slotCount; i++) {
     if (i >= works.length) {
@@ -394,17 +415,7 @@ function buildFrames(works, slotCount) {
     const w = big ? 3.2 : 2.3;
     const h = big ? 4.0 : 3.0;
 
-    let map, src;
-    if (work.type === "website") {
-      const c = makeWebsiteCanvas(work);
-      map = new THREE.CanvasTexture(c);
-      src = c.toDataURL("image/jpeg", 0.85);
-    } else {
-      map = texLoader.load(work.image_url);
-      src = work.image_url;
-    }
-    map.colorSpace = THREE.SRGBColorSpace;
-
+    const { map, src } = loadWorkTexture(work);
     work._src = src;
     work._z = z;
     work._side = side;
@@ -449,6 +460,57 @@ function buildFrames(works, slotCount) {
 }
 
 /* ════════════════════════════════════════════════
+   中央展示台：展示最新上傳的作品
+   ════════════════════════════════════════════════ */
+let featuredObjects = [];
+let featuredMesh = null;
+
+function buildFeatured(works) {
+  featuredMesh = null;
+
+  if (works.length === 0) {
+    const label = makeTextSprite("敬 請 期 待", "#7d776b");
+    label.position.set(0, 1.1, plinthZ);
+    scene.add(label);
+    featuredObjects.push(label);
+    return;
+  }
+
+  const latest = works[works.length - 1];
+  const { map, src } = loadWorkTexture(latest);
+  latest._src = src;
+
+  const w = 0.95,
+    h = 1.3;
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, side: THREE.DoubleSide }));
+  pic.position.set(0, 0.55 + h / 2 + 0.08, plinthZ);
+  pic.castShadow = true;
+  scene.add(pic);
+  featuredObjects.push(pic);
+  featuredMesh = pic;
+
+  const label = makeTextSprite(`最新上傳 · ${latest.nickname}`, "#e0c48c");
+  label.position.set(0, 0.55 + h + 0.35, plinthZ);
+  scene.add(label);
+  featuredObjects.push(label);
+}
+
+function makeTextSprite(text, color) {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 64;
+  const x = c.getContext("2d");
+  x.font = "26px Montserrat, sans-serif";
+  x.fillStyle = color;
+  x.textAlign = "center";
+  x.fillText(text, c.width / 2, 42);
+  const tex = new THREE.CanvasTexture(c);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(1.8, 0.22, 1);
+  return sprite;
+}
+
+/* ════════════════════════════════════════════════
    重建場景（人數變動時）
    ════════════════════════════════════════════════ */
 function rebuildScene(works) {
@@ -469,6 +531,10 @@ function rebuildScene(works) {
   artworkObjects = [];
   artMeshes = [];
   buildFrames(works, slotCount);
+
+  disposeObjects(featuredObjects);
+  featuredObjects = [];
+  buildFeatured(works);
 
   camera.position.x = clamp(camera.position.x, -HALL_W / 2 + 0.7, HALL_W / 2 - 0.7);
   camera.position.z = clamp(camera.position.z, -hallLen / 2 + 1.2, hallLen / 2 - 1.2);
@@ -908,6 +974,7 @@ function loop(now) {
   const dt = Math.min(0.05, (now - prev) / 1000);
   prev = now;
   update(dt, now / 1000);
+  if (featuredMesh) featuredMesh.rotation.y += dt * 0.6;
   updateFocus();
   updateSections();
   drawMinimap();
