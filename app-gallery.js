@@ -699,6 +699,18 @@ document.getElementById("fsBtn").onclick = () => {
   else document.documentElement.requestFullscreen();
 };
 
+const menuDot = document.getElementById("menu-dot");
+const menuPanel = document.getElementById("menu-panel");
+menuDot.addEventListener("click", (e) => {
+  e.stopPropagation();
+  menuPanel.classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (!menuPanel.classList.contains("hidden") && !menuPanel.contains(e.target) && e.target !== menuDot) {
+    menuPanel.classList.add("hidden");
+  }
+});
+
 const introEl = document.getElementById("intro");
 introEl.addEventListener("click", function () {
   this.classList.add("gone");
