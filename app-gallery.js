@@ -337,10 +337,35 @@ function buildShell(len) {
   scene.add(plinth);
   objs.push(plinth);
 
-  const plinthSpot = new THREE.PointLight(0xfff0d0, 1.3, 6, 2);
-  plinthSpot.position.set(0, HALL_H - 0.4, plinthZ);
+  const spotY = HALL_H - 0.3,
+    targetY = 0.9,
+    beamHeight = spotY - targetY;
+  const plinthSpot = new THREE.SpotLight(0xfff0d0, 5, 9, Math.PI / 9, 0.5, 1.2);
+  plinthSpot.position.set(0, spotY, plinthZ);
+  plinthSpot.castShadow = true;
+  plinthSpot.shadow.mapSize.set(512, 512);
+  const plinthSpotTarget = new THREE.Object3D();
+  plinthSpotTarget.position.set(0, targetY, plinthZ);
+  scene.add(plinthSpotTarget);
+  plinthSpot.target = plinthSpotTarget;
   scene.add(plinthSpot);
-  objs.push(plinthSpot);
+  objs.push(plinthSpot, plinthSpotTarget);
+
+  /* 半透明圓錐模擬聚光燈打下來的可見光束 */
+  const beam = new THREE.Mesh(
+    new THREE.ConeGeometry(1.3, beamHeight, 24, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff0d0,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  beam.position.set(0, targetY + beamHeight / 2, plinthZ);
+  scene.add(beam);
+  objs.push(beam);
 
   return objs;
 }
