@@ -479,6 +479,7 @@ function buildFrames(works, slotCount) {
    ════════════════════════════════════════════════ */
 let featuredObjects = [];
 let featuredMesh = null;
+let featuredBaseY = 0;
 
 function pickFeatured(works) {
   let best = null;
@@ -506,7 +507,8 @@ function buildFeatured(works) {
   const w = 0.95,
     h = 1.3;
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, side: THREE.DoubleSide }));
-  pic.position.set(0, 0.55 + h / 2 + 0.08, plinthZ);
+  featuredBaseY = 0.55 + h / 2 + 0.08;
+  pic.position.set(0, featuredBaseY, plinthZ);
   pic.castShadow = true;
   scene.add(pic);
   featuredObjects.push(pic);
@@ -1082,7 +1084,7 @@ function loop(now) {
   const dt = Math.min(0.05, (now - prev) / 1000);
   prev = now;
   update(dt, now / 1000);
-  if (featuredMesh) featuredMesh.rotation.y += dt * 0.6;
+  if (featuredMesh) featuredMesh.position.y = featuredBaseY + Math.sin(t * 1.1) * 0.06;
   updateFocus();
   drawMinimap();
   renderer.render(scene, camera);
