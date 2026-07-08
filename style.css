@@ -350,6 +350,12 @@ a {
   content: "→";
   letter-spacing: 0;
 }
+#artcard .likes {
+  font-size: 11px;
+  color: #ff6b6b;
+  margin-top: 8px;
+  letter-spacing: 0.06em;
+}
 
 #hint {
   position: fixed;
@@ -540,6 +546,46 @@ a {
   font-weight: 300;
   max-width: 46ch;
 }
+.like-row {
+  margin-top: 22px;
+}
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+  background: #ffffff10;
+  color: var(--bone);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.like-btn:hover {
+  background: #ffffff1c;
+}
+.like-btn:active {
+  transform: scale(0.94);
+}
+.like-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: fill 0.15s, stroke 0.15s;
+}
+.like-btn.liked {
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+.like-btn.liked svg {
+  fill: #ff6b6b;
+  stroke: #ff6b6b;
+}
+
 #modal .mlink {
   display: inline-flex;
   align-items: center;

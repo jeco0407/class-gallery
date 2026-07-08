@@ -53,3 +53,29 @@ create policy "public can delete works"
 create policy "public can delete uploads"
   on storage.objects for delete
   using (bucket_id = 'uploads');
+
+-- 按讚功能：新增讚數欄位，並用 RPC function 做原子加/減，
+-- 避免多人同時按讚時互相覆蓋掉彼此的讚數。
+alter table public.works add column if not exists likes integer not null default 0;
+
+create policy "public can update likes"
+  on public.works for update
+  using (true)
+  with check (true);
+
+create or replace function public.increment_likes(work_id uuid)
+returns void
+language sql
+as $$
+  update public.works set likes = likes + 1 where id = work_id;
+$$;
+
+create or replace function public.decrement_likes(work_id uuid)
+returns void
+language sql
+as $$
+  update public.works set likes = greatest(likes - 1, 0) where id = work_id;
+$$;
+
+grant execute on function public.increment_likes(uuid) to anon, authenticated;
+grant execute on function public.decrement_likes(uuid) to anon, authenticated;

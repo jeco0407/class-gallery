@@ -437,10 +437,10 @@ function buildFrames(works, slotCount) {
 
     const pc = document.createElement("canvas");
     pc.width = 256;
-    pc.height = 170;
+    pc.height = 190;
     const px = pc.getContext("2d");
     px.fillStyle = "#d9d2c2";
-    px.fillRect(0, 0, 256, 170);
+    px.fillRect(0, 0, 256, 190);
     px.fillStyle = "#26221c";
     px.font = "600 22px Montserrat,sans-serif";
     px.fillText(work.nickname, 20, 52);
@@ -448,8 +448,11 @@ function buildFrames(works, slotCount) {
     px.fillStyle = "#57503f";
     px.fillText(`${formatDate(work.created_at)}`, 20, 92);
     px.fillText(work.type === "website" ? "網站連結" : "圖片", 20, 124);
+    px.fillStyle = "#c0392b";
+    px.font = "600 20px Montserrat,sans-serif";
+    px.fillText(`♥ ${work.likes || 0}`, 20, 160);
     const plaque = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.52, 0.35),
+      new THREE.PlaneGeometry(0.52, 0.39),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(pc) })
     );
     plaque.position.set(side * (HALL_W / 2 - 0.06), 1.35, z + w / 2 + 0.55);
@@ -460,10 +463,18 @@ function buildFrames(works, slotCount) {
 }
 
 /* ════════════════════════════════════════════════
-   中央展示台：展示最新上傳的作品
+   中央展示台：展示讚數最高的作品
    ════════════════════════════════════════════════ */
 let featuredObjects = [];
 let featuredMesh = null;
+
+function pickFeatured(works) {
+  let best = null;
+  for (const w of works) {
+    if (!best || (w.likes || 0) >= (best.likes || 0)) best = w;
+  }
+  return best;
+}
 
 function buildFeatured(works) {
   featuredMesh = null;
@@ -476,9 +487,9 @@ function buildFeatured(works) {
     return;
   }
 
-  const latest = works[works.length - 1];
-  const { map, src } = loadWorkTexture(latest);
-  latest._src = src;
+  const featured = pickFeatured(works);
+  const { map, src } = loadWorkTexture(featured);
+  featured._src = src;
 
   const w = 0.95,
     h = 1.3;
@@ -489,7 +500,7 @@ function buildFeatured(works) {
   featuredObjects.push(pic);
   featuredMesh = pic;
 
-  const label = makeTextSprite(`最新上傳 · ${latest.nickname}`, "#e0c48c");
+  const label = makeTextSprite(`♥ ${featured.likes || 0} · ${featured.nickname}`, "#e0c48c");
   label.position.set(0, 0.55 + h + 0.35, plinthZ);
   scene.add(label);
   featuredObjects.push(label);
@@ -690,6 +701,7 @@ function updateFocus() {
       card.querySelector(".t").textContent = work.nickname;
       card.querySelector(".y").textContent = formatDate(work.created_at);
       card.querySelector(".m").innerHTML = work.type === "website" ? "網站連結" : "圖片";
+      card.querySelector(".likes").innerHTML = `♥ ${work.likes || 0}`;
       card.classList.add("show");
     } else {
       card.classList.remove("show");
@@ -713,7 +725,48 @@ cv.addEventListener("pointerup", (e) => {
   if (hit && hit.distance < 9) openModal(hit.object.userData.work);
 });
 
+/* ════════════════════════════════════════════════
+   按讚：每台裝置用 localStorage 記錄自己讚過哪些作品,
+   避免同一支手機重複灌讚(伺服器端沒有登入系統可查驗身分)。
+   ════════════════════════════════════════════════ */
+const LIKED_KEY = "likedWorks";
+function getLikedSet() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(LIKED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+function saveLikedSet(set) {
+  localStorage.setItem(LIKED_KEY, JSON.stringify([...set]));
+}
+
+let modalWork = null;
+const mLikeBtn = document.getElementById("mLike");
+const mLikeCount = document.getElementById("mLikeCount");
+
+function updateLikeUI(work) {
+  mLikeBtn.classList.toggle("liked", getLikedSet().has(work.id));
+  mLikeCount.textContent = work.likes || 0;
+}
+
+async function toggleLike(work) {
+  const liked = getLikedSet();
+  const isLiked = liked.has(work.id);
+  isLiked ? liked.delete(work.id) : liked.add(work.id);
+  saveLikedSet(liked);
+  work.likes = Math.max(0, (work.likes || 0) + (isLiked ? -1 : 1));
+  updateLikeUI(work);
+  const { error } = await supabase.rpc(isLiked ? "decrement_likes" : "increment_likes", { work_id: work.id });
+  if (error) console.error(error);
+}
+
+mLikeBtn.addEventListener("click", () => {
+  if (modalWork) toggleLike(modalWork);
+});
+
 function openModal(work) {
+  modalWork = work;
   const mLink = document.getElementById("mLink");
   document.getElementById("mImg").src = work._src;
   document.getElementById("mSec").textContent = `0${work._sec + 1} — ${SECTIONS[work._sec]}`;
@@ -722,6 +775,7 @@ function openModal(work) {
     work.type === "website" ? "網站連結" : "圖片"
   }`;
   document.getElementById("mDesc").textContent = work.description || "這位同學沒有留下說明。";
+  updateLikeUI(work);
   if (work.type === "website") {
     mLink.href = work.link;
     mLink.classList.remove("hidden");
