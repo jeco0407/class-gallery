@@ -926,20 +926,28 @@ function scheduleMusic() {
   setTimeout(scheduleMusic, 60);
 }
 
+function ensureAudioReady() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!gainNode) {
+    gainNode = actx.createGain();
+    gainNode.gain.value = 0;
+    gainNode.connect(actx.destination);
+    nextNoteTime = actx.currentTime + 0.1;
+    scheduleMusic();
+  }
+  if (actx.state === "suspended") actx.resume();
+}
+
+function setSound(on) {
+  ensureAudioReady();
+  soundOn = on;
+  gainNode.gain.linearRampToValueAtTime(soundOn ? 1 : 0, actx.currentTime + 0.8);
+  document.getElementById("soundState").textContent = soundOn ? "ON" : "OFF";
+}
+
 function toggleSound() {
   try {
-    if (!actx) {
-      actx = new (window.AudioContext || window.webkitAudioContext)();
-      gainNode = actx.createGain();
-      gainNode.gain.value = 0;
-      gainNode.connect(actx.destination);
-      nextNoteTime = actx.currentTime + 0.1;
-      scheduleMusic();
-    }
-    if (actx.state === "suspended") actx.resume();
-    soundOn = !soundOn;
-    gainNode.gain.linearRampToValueAtTime(soundOn ? 1 : 0, actx.currentTime + 0.8);
-    document.getElementById("soundState").textContent = soundOn ? "ON" : "OFF";
+    setSound(!soundOn);
   } catch (err) {
     console.error("音效啟動失敗", err);
   }
@@ -1036,6 +1044,11 @@ introEl.addEventListener("click", function () {
   if (!introActive) return;
   introActive = false;
   playDoorSound();
+  try {
+    setSound(true);
+  } catch (err) {
+    console.error("音效啟動失敗", err);
+  }
   this.classList.add("gone");
   yaw = 0;
   pitch = 0;
