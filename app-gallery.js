@@ -620,6 +620,8 @@ async function loadWorks() {
 /* ════════════════════════════════════════════════
    移動與視角控制
    ════════════════════════════════════════════════ */
+const IS_TOUCH = "ontouchstart" in window;
+
 let yaw = 0,
   pitch = 0;
 const keys = {};
@@ -630,9 +632,9 @@ const cv = renderer.domElement;
 let dragging = false,
   lx = 0,
   ly = 0,
-  moved = 0;
+  moved = 0,
+  lookPointerId = null;
 function dStart(x, y) {
-  if (introActive) return;
   dragging = true;
   lx = x;
   ly = y;
@@ -651,13 +653,87 @@ function dEnd() {
   dragging = false;
   cv.classList.remove("dragging");
 }
+
+/* ════════════════════════════════════════════════
+   觸控虛擬搖桿:第一根手指點在畫面左半邊就在該處生成搖桿,
+   位置不固定;其他手指(通常是右半邊)則用來拖曳轉視角。
+   ════════════════════════════════════════════════ */
+const JOY_MAX = 55;
+let joyPointerId = null,
+  joyOriginX = 0,
+  joyOriginY = 0,
+  joyF = 0,
+  joyS = 0;
+const joystickEl = document.getElementById("joystick");
+const joystickKnob = document.getElementById("joystickKnob");
+
+function showJoystick(x, y) {
+  joyOriginX = x;
+  joyOriginY = y;
+  joystickEl.style.left = x + "px";
+  joystickEl.style.top = y + "px";
+  joystickKnob.style.transform = "translate(0px, 0px)";
+  joystickEl.classList.remove("hidden");
+}
+function updateJoystick(x, y) {
+  let dx = x - joyOriginX,
+    dy = y - joyOriginY;
+  const dist = Math.hypot(dx, dy);
+  if (dist > JOY_MAX) {
+    dx = (dx / dist) * JOY_MAX;
+    dy = (dy / dist) * JOY_MAX;
+  }
+  joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+  if (dist < 6) {
+    joyF = 0;
+    joyS = 0;
+  } else {
+    joyF = clamp(-dy / JOY_MAX, -1, 1);
+    joyS = clamp(-dx / JOY_MAX, -1, 1);
+  }
+}
+function hideJoystick() {
+  joystickEl.classList.add("hidden");
+  joyF = 0;
+  joyS = 0;
+}
+
+if (IS_TOUCH) document.getElementById("pad").style.display = "none";
+
 cv.addEventListener("pointerdown", (e) => {
-  cv.setPointerCapture(e.pointerId);
-  dStart(e.clientX, e.clientY);
+  if (introActive) return;
+  if (IS_TOUCH && e.pointerType === "touch" && joyPointerId === null && e.clientX < innerWidth / 2) {
+    joyPointerId = e.pointerId;
+    showJoystick(e.clientX, e.clientY);
+    cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (lookPointerId === null) {
+    lookPointerId = e.pointerId;
+    cv.setPointerCapture(e.pointerId);
+    dStart(e.clientX, e.clientY);
+  }
 });
-cv.addEventListener("pointermove", (e) => dMove(e.clientX, e.clientY));
-cv.addEventListener("pointerup", dEnd);
-cv.addEventListener("pointercancel", dEnd);
+cv.addEventListener("pointermove", (e) => {
+  if (e.pointerId === joyPointerId) {
+    updateJoystick(e.clientX, e.clientY);
+    return;
+  }
+  if (e.pointerId === lookPointerId) dMove(e.clientX, e.clientY);
+});
+function releasePointer(e) {
+  if (e.pointerId === joyPointerId) {
+    joyPointerId = null;
+    hideJoystick();
+    return true;
+  }
+  if (e.pointerId === lookPointerId) {
+    lookPointerId = null;
+    dEnd();
+  }
+  return false;
+}
+cv.addEventListener("pointercancel", releasePointer);
 
 const holds = {};
 [
@@ -694,8 +770,16 @@ function update(dt, t) {
     camera.rotation.x = pitch;
     return;
   }
-  const f = (keys.KeyW || keys.ArrowUp || holds.KeyW ? 1 : 0) - (keys.KeyS || keys.ArrowDown || holds.KeyS ? 1 : 0);
-  const s = (keys.KeyA || keys.ArrowLeft || holds.KeyA ? 1 : 0) - (keys.KeyD || keys.ArrowRight || holds.KeyD ? 1 : 0);
+  const f = clamp(
+    (keys.KeyW || keys.ArrowUp || holds.KeyW ? 1 : 0) - (keys.KeyS || keys.ArrowDown || holds.KeyS ? 1 : 0) + joyF,
+    -1,
+    1
+  );
+  const s = clamp(
+    (keys.KeyA || keys.ArrowLeft || holds.KeyA ? 1 : 0) - (keys.KeyD || keys.ArrowRight || holds.KeyD ? 1 : 0) + joyS,
+    -1,
+    1
+  );
   const speed = keys.ShiftLeft || keys.ShiftRight ? 5.6 : 3.4;
   if (f || s) {
     camZTween = null;
@@ -762,6 +846,7 @@ function updateFocus() {
 
 const modal = document.getElementById("modal");
 cv.addEventListener("pointerup", (e) => {
+  if (releasePointer(e)) return;
   if (moved > 8) return;
   ray.setFromCamera({ x: (e.clientX / innerWidth) * 2 - 1, y: -(e.clientY / innerHeight) * 2 + 1 }, camera);
   const hit = ray.intersectObjects(artMeshes)[0];
@@ -1002,9 +1087,9 @@ if (document.documentElement.requestFullscreen) {
   fsBtn.style.display = "none";
 }
 
-/* 觸控裝置沒有實體鍵盤,WASD 提示改成對應螢幕按鈕的說明 */
-if ("ontouchstart" in window) {
-  document.getElementById("hintMove").textContent = "按 住 下 方 按 鈕 移 動";
+/* 觸控裝置沒有實體鍵盤,WASD 提示改成搖桿操作說明 */
+if (IS_TOUCH) {
+  document.getElementById("hintMove").textContent = "點 觸 左 側 呼 叫 搖 桿 移 動";
 }
 
 const menuDot = document.getElementById("menu-dot");

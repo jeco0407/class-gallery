@@ -350,6 +350,35 @@ a {
   grid-row: 2;
 }
 
+#joystick {
+  position: fixed;
+  z-index: 16;
+  width: 116px;
+  height: 116px;
+  margin-left: -58px;
+  margin-top: -58px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #ffffff0d;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+#joystick.hidden {
+  display: none;
+}
+#joystickKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  margin-top: -26px;
+  border-radius: 50%;
+  background: #ffffff33;
+  border: 1px solid #ffffff55;
+}
+
 #minimapBox {
   position: fixed;
   right: 34px;
