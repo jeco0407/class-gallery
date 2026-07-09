@@ -12,6 +12,8 @@ const EYE = 1.62;
 const MIN_LEN = 52;
 const PAIR_GAP = 6.2;
 const MIN_SLOTS = 6;
+const FEATURED_H = 1.3;
+const FEATURED_Y = 0.55 + FEATURED_H / 2 + 0.08;
 
 let hallLen = MIN_LEN;
 let shellBuilt = false;
@@ -337,25 +339,30 @@ function buildShell(len) {
   scene.add(plinth);
   objs.push(plinth);
 
-  const spotY = HALL_H - 0.3,
-    targetY = 0.9,
-    beamHeight = spotY - targetY;
-  const plinthSpot = new THREE.SpotLight(0xfff0d0, 5, 9, Math.PI / 9, 0.5, 1.2);
-  plinthSpot.position.set(0, spotY, plinthZ);
+  const floorY = 0.08,
+    beamHeight = FEATURED_Y - floorY;
+  const plinthSpot = new THREE.SpotLight(0xfff2df, 7, 7, Math.PI / 7, 0.45, 1.2);
+  plinthSpot.position.set(0, floorY, plinthZ);
   plinthSpot.castShadow = true;
   plinthSpot.shadow.mapSize.set(512, 512);
   const plinthSpotTarget = new THREE.Object3D();
-  plinthSpotTarget.position.set(0, targetY, plinthZ);
+  plinthSpotTarget.position.set(0, FEATURED_Y, plinthZ);
   scene.add(plinthSpotTarget);
   plinthSpot.target = plinthSpotTarget;
   scene.add(plinthSpot);
   objs.push(plinthSpot, plinthSpotTarget);
 
-  /* 半透明圓錐模擬聚光燈打下來的可見光束 */
+  /* 貼近展品的補光,確保不管角度都夠亮 */
+  const fillLight = new THREE.PointLight(0xfff2df, 1.6, 2.4, 2);
+  fillLight.position.set(0, FEATURED_Y, plinthZ + 0.5);
+  scene.add(fillLight);
+  objs.push(fillLight);
+
+  /* 半透明圓錐模擬地面往上打的聚光燈光束 */
   const beam = new THREE.Mesh(
-    new THREE.ConeGeometry(1.3, beamHeight, 24, 1, true),
+    new THREE.ConeGeometry(1.1, beamHeight, 24, 1, true),
     new THREE.MeshBasicMaterial({
-      color: 0xfff0d0,
+      color: 0xfff2df,
       transparent: true,
       opacity: 0.1,
       side: THREE.DoubleSide,
@@ -363,7 +370,8 @@ function buildShell(len) {
       blending: THREE.AdditiveBlending,
     })
   );
-  beam.position.set(0, targetY + beamHeight / 2, plinthZ);
+  beam.rotation.x = Math.PI;
+  beam.position.set(0, floorY + beamHeight / 2, plinthZ);
   scene.add(beam);
   objs.push(beam);
 
@@ -529,10 +537,12 @@ function buildFeatured(works) {
   const { map, src } = loadWorkTexture(featured);
   featured._src = src;
 
-  const w = 0.95,
-    h = 1.3;
-  const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, side: THREE.DoubleSide }));
-  featuredBaseY = 0.55 + h / 2 + 0.08;
+  const w = 0.95;
+  const pic = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, FEATURED_H),
+    new THREE.MeshStandardMaterial({ map, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.35 })
+  );
+  featuredBaseY = FEATURED_Y;
   pic.position.set(0, featuredBaseY, plinthZ);
   pic.castShadow = true;
   scene.add(pic);
@@ -540,7 +550,7 @@ function buildFeatured(works) {
   featuredMesh = pic;
 
   const label = makeTextSprite(`♥ ${featured.likes || 0} · ${featured.nickname}`, "#e0c48c");
-  label.position.set(0, 0.55 + h + 0.35, plinthZ);
+  label.position.set(0, 0.55 + FEATURED_H + 0.35, plinthZ);
   scene.add(label);
   featuredObjects.push(label);
 }
