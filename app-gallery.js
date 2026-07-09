@@ -990,10 +990,22 @@ function toggleSound() {
   }
 }
 document.getElementById("soundBtn").onclick = toggleSound;
-document.getElementById("fsBtn").onclick = () => {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen();
-};
+
+/* iOS Safari 不支援任意元素的全螢幕 API,直接把按鈕藏起來比顯示一個按了沒反應的按鈕好 */
+const fsBtn = document.getElementById("fsBtn");
+if (document.documentElement.requestFullscreen) {
+  fsBtn.onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  };
+} else {
+  fsBtn.style.display = "none";
+}
+
+/* 觸控裝置沒有實體鍵盤,WASD 提示改成對應螢幕按鈕的說明 */
+if ("ontouchstart" in window) {
+  document.getElementById("hintMove").textContent = "按 住 下 方 按 鈕 移 動";
+}
 
 const menuDot = document.getElementById("menu-dot");
 const menuPanel = document.getElementById("menu-panel");

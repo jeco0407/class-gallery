@@ -79,6 +79,7 @@ a {
   inset: 0;
   display: block;
   cursor: grab;
+  touch-action: none;
 }
 #scene.dragging {
   cursor: grabbing;
@@ -121,6 +122,7 @@ a {
   display: grid;
   place-items: center;
   cursor: pointer;
+  touch-action: manipulation;
 }
 #menu-dot span {
   display: block;
@@ -169,6 +171,7 @@ a {
   border: none;
   font-family: var(--nova-sans);
   text-align: left;
+  touch-action: manipulation;
 }
 .foot-btn:hover {
   background: #ffffff12;
@@ -316,6 +319,7 @@ a {
   color: #fff;
   cursor: pointer;
   user-select: none;
+  touch-action: none;
   transition: background 0.15s;
 }
 .pkey:active,
@@ -447,6 +451,7 @@ a {
   cursor: pointer;
   display: grid;
   place-items: center;
+  touch-action: manipulation;
 }
 .carousel-nav:hover {
   background: #14110dee;
@@ -516,6 +521,7 @@ a {
   font-size: 13px;
   letter-spacing: 0.06em;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 .like-btn:hover {
@@ -567,6 +573,7 @@ a {
   color: #fff;
   font-size: 16px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 #modal .close:hover {
   background: #ffffff22;
@@ -795,22 +802,36 @@ a {
 
 @media (max-width: 820px) {
   #topnav {
-    padding: 20px 24px;
+    padding: max(20px, env(safe-area-inset-top)) 24px 20px;
   }
   #hint {
-    bottom: 150px;
+    bottom: 172px;
     font-size: 9px;
     letter-spacing: 0.3em;
     gap: 12px;
   }
   #minimapBox {
     right: 14px;
-    bottom: 150px;
+    bottom: calc(150px + env(safe-area-inset-bottom));
     padding: 7px;
   }
   #minimap {
     width: 120px;
     height: 76px;
+  }
+  #pad {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    grid-template-columns: repeat(3, 54px);
+    grid-template-rows: repeat(2, 54px);
+    gap: 10px;
+  }
+  .pkey {
+    width: 50px;
+    height: 50px;
+  }
+  .pkey svg {
+    width: 17px;
+    height: 17px;
   }
   #modal .wrap {
     flex-direction: column;
