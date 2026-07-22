@@ -496,10 +496,10 @@ function buildFrames(works, slotCount) {
     px.fillStyle = "#c0392b";
     px.font = "600 20px Montserrat,sans-serif";
     px.fillText(`♥ ${work.likes || 0}`, 20, 160);
-    const plaque = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.52, 0.39),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(pc) })
-    );
+    const plaqueTex = new THREE.CanvasTexture(pc);
+    work._plaqueCtx = px;
+    work._plaqueTexture = plaqueTex;
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.39), new THREE.MeshBasicMaterial({ map: plaqueTex }));
     plaque.position.set(side * (HALL_W / 2 - 0.06), 1.35, z + w / 2 + 0.55);
     plaque.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
     scene.add(plaque);
@@ -556,17 +556,27 @@ function buildFeatured(works) {
 }
 
 function makeTextSprite(text, color) {
+  const font = "26px Montserrat, sans-serif";
+  const measure = document.createElement("canvas").getContext("2d");
+  measure.font = font;
+  // 暱稱長度不固定(最長 30 字),若畫布寬度固定且置中繪製，
+  // 過長的文字會左右溢出畫布，導致最前面的「♥ 讚數」被擠出可視範圍。
+  // 這裡改成依實際文字寬度量出畫布大小，並靠左起繪，確保開頭一定看得到。
+  const padding = 24;
+  const textWidth = measure.measureText(text).width;
+
   const c = document.createElement("canvas");
-  c.width = 512;
+  c.width = Math.max(512, Math.ceil(textWidth) + padding * 2);
   c.height = 64;
   const x = c.getContext("2d");
-  x.font = "26px Montserrat, sans-serif";
+  x.font = font;
   x.fillStyle = color;
-  x.textAlign = "center";
-  x.fillText(text, c.width / 2, 42);
+  x.textAlign = "left";
+  x.textBaseline = "middle";
+  x.fillText(text, padding, c.height / 2);
   const tex = new THREE.CanvasTexture(c);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-  sprite.scale.set(1.8, 0.22, 1);
+  sprite.scale.set(1.8 * (c.width / 512), 0.22, 1);
   return sprite;
 }
 
@@ -873,20 +883,67 @@ let modalWork = null;
 const mLikeBtn = document.getElementById("mLike");
 const mLikeCount = document.getElementById("mLikeCount");
 
+const likeInFlight = new Set();
+
 function updateLikeUI(work) {
   mLikeBtn.classList.toggle("liked", getLikedSet().has(work.id));
   mLikeCount.textContent = work.likes || 0;
+  // 準星瞄準時浮出的資訊卡是另一份獨立顯示，只有換目標時才會重繪，
+  // 這裡順手同步一下，避免按讚後卡片上的數字沒跟著動。
+  if (focusWork === work) {
+    card.querySelector(".likes").innerHTML = `♥ ${work.likes || 0}`;
+  }
+}
+
+/* 在畫框旁的標示牌貼圖上，就地重繪讚數，不需要整個場景重建 */
+function redrawPlaqueLikes(work) {
+  const px = work._plaqueCtx;
+  if (!px) return;
+  px.fillStyle = "#d9d2c2";
+  px.fillRect(0, 130, 256, 40);
+  px.fillStyle = "#c0392b";
+  px.font = "600 20px Montserrat,sans-serif";
+  px.fillText(`♥ ${work.likes || 0}`, 20, 160);
+  work._plaqueTexture.needsUpdate = true;
+}
+
+/* 中央展示台顯示的是「目前讚數最高」的作品，讚數一變動排名可能跟著變，
+   所以每次按讚/收回都要重建展示台，否則展示台會停在按讚當下的舊排名。 */
+function refreshFeatured() {
+  disposeObjects(featuredObjects);
+  featuredObjects = [];
+  buildFeatured(currentWorks);
 }
 
 async function toggleLike(work) {
+  if (likeInFlight.has(work.id)) return;
+  likeInFlight.add(work.id);
+  mLikeBtn.disabled = true;
+
   const liked = getLikedSet();
   const isLiked = liked.has(work.id);
+  const prevLikes = work.likes || 0;
   isLiked ? liked.delete(work.id) : liked.add(work.id);
   saveLikedSet(liked);
-  work.likes = Math.max(0, (work.likes || 0) + (isLiked ? -1 : 1));
+  work.likes = Math.max(0, prevLikes + (isLiked ? -1 : 1));
   updateLikeUI(work);
+  redrawPlaqueLikes(work);
+
   const { error } = await supabase.rpc(isLiked ? "decrement_likes" : "increment_likes", { work_id: work.id });
-  if (error) console.error(error);
+
+  if (error) {
+    console.error(error);
+    isLiked ? liked.add(work.id) : liked.delete(work.id);
+    saveLikedSet(liked);
+    work.likes = prevLikes;
+    if (modalWork === work) updateLikeUI(work);
+    redrawPlaqueLikes(work);
+  } else {
+    refreshFeatured();
+  }
+
+  likeInFlight.delete(work.id);
+  mLikeBtn.disabled = false;
 }
 
 mLikeBtn.addEventListener("click", () => {
@@ -1107,7 +1164,7 @@ document.addEventListener("click", (e) => {
 /* ════════════════════════════════════════════════
    進場門扇
    ════════════════════════════════════════════════ */
-const SITE_TITLE = "YONG HAO";
+const SITE_TITLE = "詠昊保險代理人";
 const introTitleEl = document.getElementById("introTitle");
 [...SITE_TITLE].forEach((ch, i) => {
   const b = document.createElement("b");
