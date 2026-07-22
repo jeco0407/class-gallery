@@ -14,10 +14,29 @@ const PAIR_GAP = 6.2;
 const MIN_SLOTS = 6;
 const FEATURED_H = 1.3;
 const FEATURED_Y = 0.55 + FEATURED_H / 2 + 0.08;
+const MARGIN = 0.7; // 攝影機與牆面之間的最小距離
+
+/* 側展間分支畫廊:前 ROOM_CAPACITY 件作品掛在主走廊,主走廊長度固定;
+   之後每滿 ROOM_CAPACITY 件,就沿主走廊左右交替開一間側展間,
+   把該批作品整批放進房間,而不是讓主走廊無限變長。 */
+const ROOM_CAPACITY = 6;
+const ROOM_W = 6.6; // 側展間寬度(掛畫兩側牆之間的距離)
+const ROOM_HALF_DEPTH = 13; // 側展間深度的一半
+const ROOM_PAIR_GAP = 4.4;
+const ROOM_START_MARGIN = 6;
+const CONNECTOR_LEN = 3.2; // 主走廊與側展間之間連接通道的長度
+const CONNECTOR_W = 3.4; // 連接通道(開口)的寬度
+const ROOM_SPACING = 10; // 主走廊上,相鄰側展間分支點之間的 Z 距離
+const DOORWAY_OVERLAP = 1.2; // 相鄰區域邊界重疊量,確保攝影機能跨越門口
+const PLINTH_Z = -14; // 中央展示台位置,固定不受側展間影響
+const FIRST_BRANCH_Z = PLINTH_Z - 7; // 第一個側展間分支點
 
 let hallLen = MIN_LEN;
 let shellBuilt = false;
-let plinthZ = -14;
+let lastRoomCount = -1;
+let plinthZ = PLINTH_Z;
+let regionsById = { main: null };
+let currentRegionId = "main";
 
 const SECTIONS = ["WEBSITES", "IMAGES"];
 
@@ -233,22 +252,40 @@ function endWallMesh(z, withArch, len) {
   return m;
 }
 
-function buildShell(len) {
-  const objs = [];
-  const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture() });
-  const wallL = new THREE.Mesh(new THREE.PlaneGeometry(len, HALL_H), wallMat);
-  wallL.rotation.y = Math.PI / 2;
-  wallL.position.set(-HALL_W / 2, HALL_H / 2, 0);
-  wallL.receiveShadow = true;
-  scene.add(wallL);
-  objs.push(wallL);
+/* 把一面牆依開口(gaps,[zMin,zMax] 陣列)切成好幾段,開口的地方就不生成牆面,
+   讓側展間可以從主走廊的側牆開門接進去。 */
+function wallSegments(len, gaps) {
+  const sorted = [...gaps].sort((a, b) => a[0] - b[0]);
+  const segments = [];
+  let cursor = -len / 2;
+  for (const [gMin, gMax] of sorted) {
+    if (gMin > cursor) segments.push([cursor, gMin]);
+    cursor = Math.max(cursor, gMax);
+  }
+  if (cursor < len / 2) segments.push([cursor, len / 2]);
+  return segments;
+}
 
-  const wallR = wallL.clone();
-  wallR.rotation.y = -Math.PI / 2;
-  wallR.position.x = HALL_W / 2;
-  wallR.receiveShadow = true;
-  scene.add(wallR);
-  objs.push(wallR);
+function buildWallSide(side, len, gaps, objs) {
+  const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture() });
+  for (const [zMin, zMax] of wallSegments(len, gaps)) {
+    const segLen = zMax - zMin;
+    if (segLen < 0.05) continue;
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(segLen, HALL_H), wallMat);
+    wall.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    wall.position.set(side * (HALL_W / 2), HALL_H / 2, (zMin + zMax) / 2);
+    wall.receiveShadow = true;
+    scene.add(wall);
+    objs.push(wall);
+  }
+}
+
+function buildShell(len, branches) {
+  const objs = [];
+  const gapsL = branches.filter((b) => b.side < 0).map((b) => [b.branchZ - CONNECTOR_W / 2, b.branchZ + CONNECTOR_W / 2]);
+  const gapsR = branches.filter((b) => b.side > 0).map((b) => [b.branchZ - CONNECTOR_W / 2, b.branchZ + CONNECTOR_W / 2]);
+  buildWallSide(-1, len, gapsL, objs);
+  buildWallSide(1, len, gapsR, objs);
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL_W, len), new THREE.MeshLambertMaterial({ map: floorTexture() }));
   floor.rotation.x = -Math.PI / 2;
@@ -331,7 +368,7 @@ function buildShell(len) {
     objs.push(lamp);
   }
 
-  plinthZ = -len * (14 / 52);
+  plinthZ = PLINTH_Z;
   const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 0.95), new THREE.MeshLambertMaterial({ color: 0x4a4237 }));
   plinth.position.set(0, 0.275, plinthZ);
   plinth.castShadow = true;
@@ -376,6 +413,154 @@ function buildShell(len) {
   objs.push(beam);
 
   return objs;
+}
+
+/* ════════════════════════════════════════════════
+   側展間分支:分支點計算、殼體建構、可行走區域
+   ════════════════════════════════════════════════ */
+function computeBranches(roomCount) {
+  const branches = [];
+  for (let k = 0; k < roomCount; k++) {
+    const side = k % 2 === 0 ? -1 : 1;
+    const branchZ = FIRST_BRANCH_Z - k * ROOM_SPACING;
+    const wallX = side * (HALL_W / 2);
+    const roomInnerX = wallX + side * CONNECTOR_LEN;
+    const roomOuterX = wallX + side * (CONNECTOR_LEN + ROOM_HALF_DEPTH * 2);
+    branches.push({
+      k,
+      side,
+      branchZ,
+      wallX,
+      roomInnerX,
+      roomOuterX,
+      roomCenterX: (roomInnerX + roomOuterX) / 2,
+      connCenterX: wallX + side * (CONNECTOR_LEN / 2),
+      connId: `conn-${k}`,
+      roomId: `room-${k}`,
+    });
+  }
+  return branches;
+}
+
+function requiredHallLen(branches) {
+  if (branches.length === 0) return MIN_LEN;
+  const deepestZ = Math.min(...branches.map((b) => b.branchZ));
+  return Math.max(MIN_LEN, Math.ceil(((Math.abs(deepestZ) + 8) * 2) / 4) * 4);
+}
+
+function buildRegions(branches) {
+  const byId = {
+    main: {
+      id: "main",
+      minX: -HALL_W / 2 + MARGIN,
+      maxX: HALL_W / 2 - MARGIN,
+      minZ: -hallLen / 2 + 1.2,
+      maxZ: hallLen / 2 - 1.2,
+      connectsTo: [],
+    },
+  };
+  for (const b of branches) {
+    const { side, branchZ, wallX, roomInnerX, roomOuterX, connId, roomId } = b;
+    byId[connId] = {
+      id: connId,
+      minX: side > 0 ? wallX - DOORWAY_OVERLAP : roomInnerX,
+      maxX: side > 0 ? roomInnerX : wallX + DOORWAY_OVERLAP,
+      minZ: branchZ - CONNECTOR_W / 2 + 0.5,
+      maxZ: branchZ + CONNECTOR_W / 2 - 0.5,
+      connectsTo: ["main", roomId],
+    };
+    byId.main.connectsTo.push(connId);
+
+    byId[roomId] = {
+      id: roomId,
+      /* 靠連接通道那一側要往外延伸(DOORWAY_OVERLAP)確保門口不會有縫隙可以卡住;
+         靠房間最深處的實牆則要往內縮(MARGIN),不能讓攝影機穿牆。 */
+      minX: side > 0 ? roomInnerX - DOORWAY_OVERLAP : roomOuterX + MARGIN,
+      maxX: side > 0 ? roomOuterX - MARGIN : roomInnerX + DOORWAY_OVERLAP,
+      minZ: branchZ - ROOM_W / 2 + MARGIN,
+      maxZ: branchZ + ROOM_W / 2 - MARGIN,
+      connectsTo: [connId],
+    };
+  }
+  return byId;
+}
+
+function buildConnectorShell(b, objs) {
+  const { branchZ, connCenterX } = b;
+  const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture() });
+  [-1, 1].forEach((wSide) => {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(CONNECTOR_LEN, HALL_H), wallMat);
+    wall.rotation.y = wSide > 0 ? Math.PI : 0;
+    wall.position.set(connCenterX, HALL_H / 2, branchZ + wSide * (CONNECTOR_W / 2));
+    wall.receiveShadow = true;
+    scene.add(wall);
+    objs.push(wall);
+  });
+
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(CONNECTOR_LEN, CONNECTOR_W),
+    new THREE.MeshLambertMaterial({ map: floorTexture() })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(connCenterX, 0, branchZ);
+  floor.receiveShadow = true;
+  scene.add(floor);
+  objs.push(floor);
+
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(CONNECTOR_LEN, CONNECTOR_W), new THREE.MeshLambertMaterial({ color: 0x241f19 }));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.set(connCenterX, HALL_H, branchZ);
+  scene.add(ceil);
+  objs.push(ceil);
+
+  const lamp = new THREE.PointLight(0xffcf98, 0.6, 8);
+  lamp.position.set(connCenterX, HALL_H - 0.4, branchZ);
+  scene.add(lamp);
+  objs.push(lamp);
+}
+
+function buildRoomShell(b, objs) {
+  const { side, branchZ, roomInnerX, roomOuterX, roomCenterX } = b;
+  const roomLen = Math.abs(roomOuterX - roomInnerX);
+  const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture() });
+
+  [-1, 1].forEach((wSide) => {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(roomLen, HALL_H), wallMat);
+    wall.rotation.y = wSide > 0 ? Math.PI : 0;
+    wall.position.set(roomCenterX, HALL_H / 2, branchZ + wSide * (ROOM_W / 2));
+    wall.receiveShadow = true;
+    scene.add(wall);
+    objs.push(wall);
+  });
+
+  const farCap = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, HALL_H), wallMat);
+  farCap.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+  farCap.position.set(roomOuterX, HALL_H / 2, branchZ);
+  farCap.receiveShadow = true;
+  scene.add(farCap);
+  objs.push(farCap);
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomLen, ROOM_W), new THREE.MeshLambertMaterial({ map: floorTexture() }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(roomCenterX, 0, branchZ);
+  floor.receiveShadow = true;
+  scene.add(floor);
+  objs.push(floor);
+
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(roomLen, ROOM_W), new THREE.MeshLambertMaterial({ color: 0x241f19 }));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.set(roomCenterX, HALL_H, branchZ);
+  scene.add(ceil);
+  objs.push(ceil);
+
+  const lampCount = Math.max(1, Math.round(roomLen / 9));
+  for (let i = 0; i < lampCount; i++) {
+    const lx = roomInnerX + side * ((i + 0.5) * (roomLen / lampCount));
+    const lamp = new THREE.PointLight(0xffcf98, 0.9, 12);
+    lamp.position.set(lx, HALL_H - 0.4, branchZ);
+    scene.add(lamp);
+    objs.push(lamp);
+  }
 }
 
 function disposeObjects(list) {
@@ -448,6 +633,61 @@ function loadWorkTexture(work) {
   return { map, src };
 }
 
+/* 掛畫的共用建構邏輯:主走廊(牆面法線沿 X)與側展間(牆面法線沿 Z)
+   都呼叫這裡,差別只在傳進來的世界座標、朝向、標示牌位置。 */
+function mountArtwork(work, i, pos, rotationY, plaquePos) {
+  const big = i % 3 === 0;
+  const w = big ? 3.2 : 2.3;
+  const h = big ? 4.0 : 3.0;
+
+  const { map, src } = loadWorkTexture(work);
+  work._src = src;
+  work._sec = secOf(work);
+  work._worldPos = { x: pos.x, z: pos.z };
+  const normalX = Math.sin(rotationY),
+    normalZ = Math.cos(rotationY);
+  work._cardPos = { x: pos.x + normalX * 0.6, y: 2.4, z: pos.z + normalZ * 0.6 };
+
+  const grp = new THREE.Group();
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.09), new THREE.MeshLambertMaterial({ color: 0x14110d }));
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map }));
+  pic.position.z = 0.055;
+  pic.userData.work = work;
+  frame.castShadow = true;
+  frame.receiveShadow = true;
+  grp.add(frame, pic);
+  grp.position.set(pos.x, 2.55, pos.z);
+  grp.rotation.y = rotationY;
+  scene.add(grp);
+  artworkObjects.push(grp);
+  artMeshes.push(pic);
+
+  const pc = document.createElement("canvas");
+  pc.width = 256;
+  pc.height = 190;
+  const px = pc.getContext("2d");
+  px.fillStyle = "#d9d2c2";
+  px.fillRect(0, 0, 256, 190);
+  px.fillStyle = "#26221c";
+  px.font = "600 22px Montserrat,sans-serif";
+  px.fillText(work.nickname, 20, 52);
+  px.font = "300 18px Montserrat,sans-serif";
+  px.fillStyle = "#57503f";
+  px.fillText(`${formatDate(work.created_at)}`, 20, 92);
+  px.fillText(typeLabel(work), 20, 124);
+  px.fillStyle = "#c0392b";
+  px.font = "600 20px Montserrat,sans-serif";
+  px.fillText(`♥ ${work.likes || 0}`, 20, 160);
+  const plaqueTex = new THREE.CanvasTexture(pc);
+  work._plaqueCtx = px;
+  work._plaqueTexture = plaqueTex;
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.39), new THREE.MeshBasicMaterial({ map: plaqueTex }));
+  plaque.position.set(plaquePos.x, 1.35, plaquePos.z);
+  plaque.rotation.y = rotationY;
+  scene.add(plaque);
+  artworkObjects.push(plaque);
+}
+
 function buildFrames(works, slotCount) {
   for (let i = 0; i < slotCount; i++) {
     if (i >= works.length) {
@@ -458,53 +698,43 @@ function buildFrames(works, slotCount) {
     const { side, z } = slotTransform(i);
     const big = i % 3 === 0;
     const w = big ? 3.2 : 2.3;
-    const h = big ? 4.0 : 3.0;
-
-    const { map, src } = loadWorkTexture(work);
-    work._src = src;
-    work._z = z;
-    work._side = side;
-    work._sec = secOf(work);
-
-    const grp = new THREE.Group();
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.12, h + 0.12, 0.09), new THREE.MeshLambertMaterial({ color: 0x14110d }));
-    const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map }));
-    pic.position.z = 0.055;
-    pic.userData.work = work;
-    frame.castShadow = true;
-    frame.receiveShadow = true;
-    grp.add(frame, pic);
-    grp.position.set(side * (HALL_W / 2 - 0.1), 2.55, z);
-    grp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-    scene.add(grp);
-    artworkObjects.push(grp);
-    artMeshes.push(pic);
-
-    const pc = document.createElement("canvas");
-    pc.width = 256;
-    pc.height = 190;
-    const px = pc.getContext("2d");
-    px.fillStyle = "#d9d2c2";
-    px.fillRect(0, 0, 256, 190);
-    px.fillStyle = "#26221c";
-    px.font = "600 22px Montserrat,sans-serif";
-    px.fillText(work.nickname, 20, 52);
-    px.font = "300 18px Montserrat,sans-serif";
-    px.fillStyle = "#57503f";
-    px.fillText(`${formatDate(work.created_at)}`, 20, 92);
-    px.fillText(typeLabel(work), 20, 124);
-    px.fillStyle = "#c0392b";
-    px.font = "600 20px Montserrat,sans-serif";
-    px.fillText(`♥ ${work.likes || 0}`, 20, 160);
-    const plaque = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.52, 0.39),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(pc) })
+    mountArtwork(
+      work,
+      i,
+      { x: side * (HALL_W / 2 - 0.1), z },
+      side > 0 ? -Math.PI / 2 : Math.PI / 2,
+      { x: side * (HALL_W / 2 - 0.06), z: z + w / 2 + 0.55 }
     );
-    plaque.position.set(side * (HALL_W / 2 - 0.06), 1.35, z + w / 2 + 0.55);
-    plaque.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-    scene.add(plaque);
-    artworkObjects.push(plaque);
   }
+}
+
+/* 側展間內的掛畫排列:跟主走廊邏輯相同(兩兩一對、左右交替),
+   只是深度軸換成房間的 X 方向、掛畫牆換成房間的 Z 向兩側牆。 */
+function roomSlotTransform(i, b) {
+  const startU = CONNECTOR_LEN + ROOM_START_MARGIN;
+  const wallSide = i % 2 === 0 ? -1 : 1;
+  const u = startU + Math.floor(i / 2) * ROOM_PAIR_GAP * 1.55 + (i % 2) * ROOM_PAIR_GAP * 0.55;
+  return {
+    worldX: b.wallX + b.side * u,
+    worldZ: b.branchZ + wallSide * (ROOM_W / 2 - 0.1),
+    rotationY: wallSide > 0 ? Math.PI : 0,
+    wallSide,
+  };
+}
+
+function buildRoomFrames(works, b) {
+  works.forEach((work, i) => {
+    const { worldX, worldZ, rotationY, wallSide } = roomSlotTransform(i, b);
+    const big = i % 3 === 0;
+    const w = big ? 3.2 : 2.3;
+    mountArtwork(
+      work,
+      i,
+      { x: worldX, z: worldZ },
+      rotationY,
+      { x: worldX - b.side * (w / 2 + 0.55), z: b.branchZ + wallSide * (ROOM_W / 2 - 0.06) }
+    );
+  });
 }
 
 /* ════════════════════════════════════════════════
@@ -556,17 +786,27 @@ function buildFeatured(works) {
 }
 
 function makeTextSprite(text, color) {
+  const font = "26px Montserrat, sans-serif";
+  const measure = document.createElement("canvas").getContext("2d");
+  measure.font = font;
+  // 暱稱長度不固定(最長 30 字),若畫布寬度固定且置中繪製，
+  // 過長的文字會左右溢出畫布，導致最前面的「♥ 讚數」被擠出可視範圍。
+  // 這裡改成依實際文字寬度量出畫布大小，並靠左起繪，確保開頭一定看得到。
+  const padding = 24;
+  const textWidth = measure.measureText(text).width;
+
   const c = document.createElement("canvas");
-  c.width = 512;
+  c.width = Math.max(512, Math.ceil(textWidth) + padding * 2);
   c.height = 64;
   const x = c.getContext("2d");
-  x.font = "26px Montserrat, sans-serif";
+  x.font = font;
   x.fillStyle = color;
-  x.textAlign = "center";
-  x.fillText(text, c.width / 2, 42);
+  x.textAlign = "left";
+  x.textBaseline = "middle";
+  x.fillText(text, padding, c.height / 2);
   const tex = new THREE.CanvasTexture(c);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-  sprite.scale.set(1.8, 0.22, 1);
+  sprite.scale.set(1.8 * (c.width / 512), 0.22, 1);
   return sprite;
 }
 
@@ -576,28 +816,42 @@ function makeTextSprite(text, color) {
 function rebuildScene(works) {
   currentWorks = works;
 
-  const slotCount = Math.max(MIN_SLOTS, works.length);
-  const pairsCount = Math.max(1, Math.ceil(slotCount / 2));
-  const needed = Math.max(MIN_LEN, Math.round((pairsCount * PAIR_GAP * 1.55 + 20) / 4) * 4);
+  const mainWorks = works.slice(0, ROOM_CAPACITY);
+  const overflow = works.slice(ROOM_CAPACITY);
+  const roomCount = Math.ceil(overflow.length / ROOM_CAPACITY);
+  const branches = computeBranches(roomCount);
+  const needed = requiredHallLen(branches);
 
-  if (!shellBuilt || needed !== hallLen) {
+  if (!shellBuilt || needed !== hallLen || roomCount !== lastRoomCount) {
     disposeObjects(shellObjects);
     hallLen = needed;
-    shellObjects = buildShell(hallLen);
+    shellObjects = buildShell(hallLen, branches);
+    branches.forEach((b) => {
+      buildConnectorShell(b, shellObjects);
+      buildRoomShell(b, shellObjects);
+    });
     shellBuilt = true;
+    lastRoomCount = roomCount;
   }
+
+  regionsById = buildRegions(branches);
 
   disposeObjects(artworkObjects);
   artworkObjects = [];
   artMeshes = [];
-  buildFrames(works, slotCount);
+  const slotCount = Math.max(MIN_SLOTS, mainWorks.length);
+  buildFrames(mainWorks, slotCount);
+  branches.forEach((b, idx) => {
+    buildRoomFrames(overflow.slice(idx * ROOM_CAPACITY, (idx + 1) * ROOM_CAPACITY), b);
+  });
 
   disposeObjects(featuredObjects);
   featuredObjects = [];
   buildFeatured(works);
 
-  camera.position.x = clamp(camera.position.x, -HALL_W / 2 + 0.7, HALL_W / 2 - 0.7);
-  camera.position.z = clamp(camera.position.z, -hallLen / 2 + 1.2, hallLen / 2 - 1.2);
+  const mainRegion = regionsById.main;
+  camera.position.x = clamp(camera.position.x, mainRegion.minX, mainRegion.maxX);
+  camera.position.z = clamp(camera.position.z, mainRegion.minZ, mainRegion.maxZ);
 }
 
 async function loadWorks() {
@@ -757,6 +1011,26 @@ const holds = {};
   el.addEventListener("pointerleave", off);
 });
 
+/* 走廊+側展間不再是單一矩形,改成「區域清單」判定攝影機碰撞:
+   每影格先看目前所在區域能不能裝下新座標,裝不下就看看相鄰區域
+   (門口/連接通道會讓相鄰兩個區域的範圍重疊),都不行就夾回目前區域邊界。 */
+function regionContains(region, x, z) {
+  return x >= region.minX && x <= region.maxX && z >= region.minZ && z <= region.maxZ;
+}
+
+function resolveMove(nx, nz) {
+  const cur = regionsById[currentRegionId] || regionsById.main;
+  if (regionContains(cur, nx, nz)) return { x: nx, z: nz };
+  for (const nid of cur.connectsTo) {
+    const nb = regionsById[nid];
+    if (nb && regionContains(nb, nx, nz)) {
+      currentRegionId = nid;
+      return { x: nx, z: nz };
+    }
+  }
+  return { x: clamp(nx, cur.minX, cur.maxX), z: clamp(nz, cur.minZ, cur.maxZ) };
+}
+
 let camZTween = null;
 let introActive = true;
 function update(dt, t) {
@@ -781,25 +1055,31 @@ function update(dt, t) {
     1
   );
   const speed = keys.ShiftLeft || keys.ShiftRight ? 5.6 : 3.4;
+  let nx = camera.position.x,
+    nz = camera.position.z;
   if (f || s) {
     camZTween = null;
     const sin = Math.sin(yaw),
       cos = Math.cos(yaw);
-    camera.position.x += (sin * f + cos * s) * speed * dt * -1;
-    camera.position.z += (cos * f - sin * s) * speed * dt * -1;
+    nx += (sin * f + cos * s) * speed * dt * -1;
+    nz += (cos * f - sin * s) * speed * dt * -1;
   }
   if (camZTween !== null) {
-    camera.position.z += (camZTween - camera.position.z) * Math.min(1, dt * 3);
-    camera.position.x += (0 - camera.position.x) * Math.min(1, dt * 3);
-    if (Math.abs(camZTween - camera.position.z) < 0.05) camZTween = null;
+    nz += (camZTween - nz) * Math.min(1, dt * 3);
+    nx += (0 - nx) * Math.min(1, dt * 3);
+    if (Math.abs(camZTween - nz) < 0.05) camZTween = null;
+    currentRegionId = "main";
   }
-  camera.position.x = clamp(camera.position.x, -HALL_W / 2 + 0.7, HALL_W / 2 - 0.7);
-  camera.position.z = clamp(camera.position.z, -hallLen / 2 + 1.2, hallLen / 2 - 1.2);
-  const dx = camera.position.x,
-    dz = camera.position.z - plinthZ;
-  if (Math.abs(dx) < 1.35 && Math.abs(dz) < 1.1) {
-    if (Math.abs(dx) > Math.abs(dz)) camera.position.x = Math.sign(dx) * 1.35;
-    else camera.position.z = plinthZ + Math.sign(dz) * 1.1;
+  const resolved = resolveMove(nx, nz);
+  camera.position.x = resolved.x;
+  camera.position.z = resolved.z;
+  if (currentRegionId === "main") {
+    const dx = camera.position.x,
+      dz = camera.position.z - plinthZ;
+    if (Math.abs(dx) < 1.35 && Math.abs(dz) < 1.1) {
+      if (Math.abs(dx) > Math.abs(dz)) camera.position.x = Math.sign(dx || 1) * 1.35;
+      else camera.position.z = plinthZ + Math.sign(dz || 1) * 1.1;
+    }
   }
   const bob = f || s ? Math.sin(t * 7.5) * 0.035 : 0;
   camera.position.y = EYE + bob;
@@ -835,7 +1115,7 @@ function updateFocus() {
     }
   }
   if (focusWork) {
-    proj.set(focusWork._side * (HALL_W / 2 - 0.4), 2.4, focusWork._z + (focusWork._side > 0 ? -2.3 : 2.3));
+    proj.set(focusWork._cardPos.x, focusWork._cardPos.y, focusWork._cardPos.z);
     proj.project(camera);
     const sx = (proj.x * 0.5 + 0.5) * innerWidth,
       sy = (-proj.y * 0.5 + 0.5) * innerHeight;
@@ -872,21 +1152,67 @@ function saveLikedSet(set) {
 let modalWork = null;
 const mLikeBtn = document.getElementById("mLike");
 const mLikeCount = document.getElementById("mLikeCount");
+const likeInFlight = new Set();
 
 function updateLikeUI(work) {
   mLikeBtn.classList.toggle("liked", getLikedSet().has(work.id));
   mLikeCount.textContent = work.likes || 0;
+  // 準星瞄準時浮出的資訊卡是另一份獨立顯示，只有換目標時才會重繪，
+  // 這裡順手同步一下，避免按讚後卡片上的數字沒跟著動。
+  if (focusWork === work) {
+    card.querySelector(".likes").innerHTML = `♥ ${work.likes || 0}`;
+  }
+}
+
+/* 在畫框旁的標示牌貼圖上，就地重繪讚數，不需要整個場景重建 */
+function redrawPlaqueLikes(work) {
+  const px = work._plaqueCtx;
+  if (!px) return;
+  px.fillStyle = "#d9d2c2";
+  px.fillRect(0, 130, 256, 40);
+  px.fillStyle = "#c0392b";
+  px.font = "600 20px Montserrat,sans-serif";
+  px.fillText(`♥ ${work.likes || 0}`, 20, 160);
+  work._plaqueTexture.needsUpdate = true;
+}
+
+/* 中央展示台顯示的是「目前讚數最高」的作品，讚數一變動排名可能跟著變，
+   所以每次按讚/收回都要重建展示台，否則展示台會停在按讚當下的舊排名。 */
+function refreshFeatured() {
+  disposeObjects(featuredObjects);
+  featuredObjects = [];
+  buildFeatured(currentWorks);
 }
 
 async function toggleLike(work) {
+  if (likeInFlight.has(work.id)) return;
+  likeInFlight.add(work.id);
+  mLikeBtn.disabled = true;
+
   const liked = getLikedSet();
   const isLiked = liked.has(work.id);
+  const prevLikes = work.likes || 0;
   isLiked ? liked.delete(work.id) : liked.add(work.id);
   saveLikedSet(liked);
-  work.likes = Math.max(0, (work.likes || 0) + (isLiked ? -1 : 1));
+  work.likes = Math.max(0, prevLikes + (isLiked ? -1 : 1));
   updateLikeUI(work);
+  redrawPlaqueLikes(work);
+
   const { error } = await supabase.rpc(isLiked ? "decrement_likes" : "increment_likes", { work_id: work.id });
-  if (error) console.error(error);
+
+  if (error) {
+    console.error(error);
+    isLiked ? liked.add(work.id) : liked.delete(work.id);
+    saveLikedSet(liked);
+    work.likes = prevLikes;
+    if (modalWork === work) updateLikeUI(work);
+    redrawPlaqueLikes(work);
+  } else {
+    refreshFeatured();
+  }
+
+  likeInFlight.delete(work.id);
+  mLikeBtn.disabled = false;
 }
 
 mLikeBtn.addEventListener("click", () => {
@@ -895,6 +1221,8 @@ mLikeBtn.addEventListener("click", () => {
 
 let modalImages = [];
 let modalIndex = 0;
+let modalAutoplayTimer = null;
+const MODAL_AUTOPLAY_MS = 3000;
 const mPrevBtn = document.getElementById("mPrev");
 const mNextBtn = document.getElementById("mNext");
 const mCounter = document.getElementById("mCounter");
@@ -908,13 +1236,31 @@ function updateModalImage() {
   if (multi) mCounter.textContent = `${modalIndex + 1} / ${modalImages.length}`;
 }
 
+function stopModalAutoplay() {
+  if (modalAutoplayTimer) {
+    clearInterval(modalAutoplayTimer);
+    modalAutoplayTimer = null;
+  }
+}
+
+function startModalAutoplay() {
+  stopModalAutoplay();
+  if (modalImages.length <= 1) return;
+  modalAutoplayTimer = setInterval(() => {
+    modalIndex = (modalIndex + 1) % modalImages.length;
+    updateModalImage();
+  }, MODAL_AUTOPLAY_MS);
+}
+
 mPrevBtn.addEventListener("click", () => {
   modalIndex = (modalIndex - 1 + modalImages.length) % modalImages.length;
   updateModalImage();
+  startModalAutoplay();
 });
 mNextBtn.addEventListener("click", () => {
   modalIndex = (modalIndex + 1) % modalImages.length;
   updateModalImage();
+  startModalAutoplay();
 });
 
 function openModal(work) {
@@ -923,6 +1269,7 @@ function openModal(work) {
   modalImages = work.type === "image" ? imagesOf(work) : [work._src];
   modalIndex = 0;
   updateModalImage();
+  startModalAutoplay();
   document.getElementById("mSec").textContent = `0${work._sec + 1} — ${SECTIONS[work._sec]}`;
   document.getElementById("mTitle").textContent = work.nickname;
   document.getElementById("mMeta").innerHTML = `${formatDate(work.created_at)}<br>${typeLabel(work)}`;
@@ -936,36 +1283,74 @@ function openModal(work) {
   }
   modal.classList.add("open");
 }
-document.getElementById("modalClose").onclick = () => modal.classList.remove("open");
+document.getElementById("modalClose").onclick = () => {
+  modal.classList.remove("open");
+  stopModalAutoplay();
+};
 modal.addEventListener("click", (e) => {
-  if (e.target === modal) modal.classList.remove("open");
+  if (e.target === modal) {
+    modal.classList.remove("open");
+    stopModalAutoplay();
+  }
 });
 addEventListener("keydown", (e) => {
-  if (e.code === "Escape") modal.classList.remove("open");
+  if (e.code === "Escape") {
+    modal.classList.remove("open");
+    stopModalAutoplay();
+  }
 });
 
 /* ════════════════════════════════════════════════
    小地圖
    ════════════════════════════════════════════════ */
 const mm = document.getElementById("minimap").getContext("2d");
+
+/* 側展間會讓場地往 X 方向岔出去,小地圖改成量出「主走廊+所有側展間+
+   連接通道」的整體外接框,再等比例畫成樹狀平面圖,而不是單一矩形。 */
+function minimapBounds() {
+  let minX = -HALL_W / 2,
+    maxX = HALL_W / 2,
+    minZ = -hallLen / 2,
+    maxZ = hallLen / 2;
+  Object.values(regionsById).forEach((r) => {
+    minX = Math.min(minX, r.minX);
+    maxX = Math.max(maxX, r.maxX);
+    minZ = Math.min(minZ, r.minZ);
+    maxZ = Math.max(maxZ, r.maxZ);
+  });
+  return { minX, maxX, minZ, maxZ };
+}
+
 function drawMinimap() {
   const W = 380,
-    H = 240;
+    H = 240,
+    pad = 26;
   mm.clearRect(0, 0, W, H);
-  const pad = 26,
-    sx = (W - pad * 2) / hallLen,
-    sy = (H - pad * 2) / HALL_W;
-  const mx = (z) => pad + (z + hallLen / 2) * sx,
-    my = (x) => pad + (x + HALL_W / 2) * sy;
+
+  const b = minimapBounds();
+  const spanZ = b.maxZ - b.minZ,
+    spanX = b.maxX - b.minX;
+  const s = Math.min((W - pad * 2) / spanZ, (H - pad * 2) / spanX);
+  const offX = pad + ((W - pad * 2) - spanZ * s) / 2,
+    offY = pad + ((H - pad * 2) - spanX * s) / 2;
+  const mx = (z) => offX + (z - b.minZ) * s,
+    my = (x) => offY + (x - b.minX) * s;
+
   mm.strokeStyle = "#ffffff55";
   mm.lineWidth = 2;
-  mm.strokeRect(pad, pad, hallLen * sx, HALL_W * sy);
+  Object.values(regionsById).forEach((r) => {
+    mm.strokeRect(mx(r.minZ), my(r.minX), mx(r.maxZ) - mx(r.minZ), my(r.maxX) - my(r.minX));
+  });
+
   mm.fillStyle = "#ffffff88";
   currentWorks.forEach((w) => {
-    mm.fillRect(mx(w._z) - 5, w._side < 0 ? pad - 4 : pad + HALL_W * sy - 2, 10, 6);
+    if (!w._worldPos) return;
+    mm.fillRect(mx(w._worldPos.z) - 3, my(w._worldPos.x) - 3, 6, 6);
   });
+
   mm.fillStyle = "#ffffff44";
   mm.fillRect(mx(plinthZ) - 4, my(0) - 4, 8, 8);
+
   const pxx = mx(camera.position.z),
     pyy = my(camera.position.x);
   const ang = Math.atan2(-Math.sin(yaw), -Math.cos(yaw));
@@ -978,8 +1363,8 @@ function drawMinimap() {
   mm.fillStyle = grd;
   mm.beginPath();
   mm.moveTo(pxx, pyy);
-  mm.lineTo(pxx - Math.cos(a1) * r, pyy - Math.sin(a1) * r * (sy / sx) * 3.2);
-  mm.lineTo(pxx - Math.cos(a2) * r, pyy - Math.sin(a2) * r * (sy / sx) * 3.2);
+  mm.lineTo(pxx - Math.cos(a1) * r, pyy - Math.sin(a1) * r);
+  mm.lineTo(pxx - Math.cos(a2) * r, pyy - Math.sin(a2) * r);
   mm.fill();
   mm.fillStyle = "#fff";
   mm.beginPath();
@@ -1107,7 +1492,7 @@ document.addEventListener("click", (e) => {
 /* ════════════════════════════════════════════════
    進場門扇
    ════════════════════════════════════════════════ */
-const SITE_TITLE = "YONG HAO";
+const SITE_TITLE = "詠昊保險代理人";
 const introTitleEl = document.getElementById("introTitle");
 [...SITE_TITLE].forEach((ch, i) => {
   const b = document.createElement("b");
